@@ -207,8 +207,10 @@ export async function ensurePromotionCode({ code, percentOff = 100, maxRedemptio
     name: `${code} — ${percentOff}% off`
   }, { idempotencyKey: `coupon_${code}` });
 
+  /* The coupon is nested under `promotion` — a top-level `coupon` param is
+     rejected as unknown by the current API. */
   const promo = await stripeRequest('promotion_codes', {
-    coupon: coupon.id,
+    promotion: { type: 'coupon', coupon: coupon.id },
     code,
     max_redemptions: maxRedemptions
   }, { idempotencyKey: `promo_${code}` });
@@ -220,10 +222,14 @@ export async function ensurePromotionCode({ code, percentOff = 100, maxRedemptio
 export async function getPromotionCode(code){
   if (!stripeEnabled) return null;
   const res = await fetch(
-    `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`,
+    `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`
+      + `&expand[]=data.promotion.coupon`,
     { headers: { authorization: `Bearer ${SECRET_KEY}` } }
   );
-  if (!res.ok) return { error: `stripe ${res.status}` };
+  if (!res.ok){
+    const err = await res.json().catch(() => ({}));
+    return { error: err?.error?.message || `stripe ${res.status}` };
+  }
   const found = (await res.json()).data?.[0];
   if (!found) return null;
   return {
@@ -232,20 +238,28 @@ export async function getPromotionCode(code){
     max: found.max_redemptions,
     redeemed: found.times_redeemed,
     remaining: found.max_redemptions == null ? null : found.max_redemptions - found.times_redeemed,
-    percentOff: found.coupon?.percent_off ?? null
+    percentOff: percentOffOf(found)
   };
+}
+
+/* The discount moved from `coupon` to `promotion.coupon`; accept both so a
+   response from either API version still reads correctly. */
+function percentOffOf(promo){
+  const c = promo?.promotion?.coupon ?? promo?.coupon;
+  return (typeof c === 'object' ? c?.percent_off : null) ?? null;
 }
 
 export async function listPromotionCodes(){
   if (!stripeEnabled) return [];
-  const res = await fetch('https://api.stripe.com/v1/promotion_codes?limit=100', {
+  const res = await fetch(
+    'https://api.stripe.com/v1/promotion_codes?limit=100&expand[]=data.promotion.coupon', {
     headers: { authorization: `Bearer ${SECRET_KEY}` }
   });
   if (!res.ok) return [];
   return (await res.json()).data.map(p => ({
     code: p.code,
     active: p.active,
-    percentOff: p.coupon?.percent_off ?? null,
+    percentOff: percentOffOf(p),
     max: p.max_redemptions,
     redeemed: p.times_redeemed,
     remaining: p.max_redemptions == null ? null : p.max_redemptions - p.times_redeemed
