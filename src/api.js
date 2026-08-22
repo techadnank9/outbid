@@ -325,11 +325,14 @@ export const routes = {
                      title: meta.title, description: meta.description })
     });
 
-    const bidId = store.createBid({
+    /* Record a zero charge explicitly. Leaving it null would make revenue
+       fall back to the bid amount and report money that was never taken. */
+    const sessionId = `comp_${randomUUID()}`;
+    store.createBid({
       listingId: listing.id, amountCents: cents,
-      status: 'paid', sessionId: `comp_${randomUUID()}`, provider: 'comp'
+      status: 'paid', sessionId, provider: 'comp'
     });
-    store.attachPaymentDetails(`comp_${bidId}`, {});   // no-op; keeps shape consistent
+    store.attachPaymentDetails(sessionId, { amountPaidCents: 0, currency: 'USD' });
     invalidate();
     broadcast('board', { reason: 'comp', target: listing.target });
 
