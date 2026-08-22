@@ -1,13 +1,39 @@
 /* outbid — frontend. Every number on this page comes from the API. */
 
+/* Empty means same-origin (local dev, or backend serving the frontend).
+   A split deploy (static on Firebase, API on Render) sets this to the API
+   origin at build time. */
+const API_BASE = (window.__CONFIG__?.apiBase || '').replace(/\/$/, '');
+const url = (path) => API_BASE + path;
+
+/* The visitor id lives client-side because a cross-origin API cannot set a
+   usable cookie — browsers block third-party cookies. */
+const VISITOR_ID = (() => {
+  const KEY = 'outbid_vid';
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)){
+      id = crypto.randomUUID();
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID();   // private mode: counted as a new visitor
+  }
+})();
+
 const $ = (id) => document.getElementById(id);
 const fmtInt = (n) => Number(n).toLocaleString('en-US');
 const fmtMoney = (n) => '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 async function api(path, options){
-  const res = await fetch(path, {
-    headers: { 'content-type': 'application/json' },
-    ...options
+  const res = await fetch(url(path), {
+    ...options,
+    headers: {
+      'content-type': 'application/json',
+      'x-visitor-id': VISITOR_ID,
+      ...options?.headers
+    }
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
@@ -115,7 +141,7 @@ function rowHtml(item){
     ? `<div class="divider"><span>${dividers[item.rank]}</span></div>` : '';
 
   return `
-    <a class="row${top3 ? ' top' : ''}" href="/r/${item.id}" target="_blank" rel="noopener nofollow">
+    <a class="row${top3 ? ' top' : ''}" href="${url(`/r/${item.id}`)}" target="_blank" rel="noopener nofollow">
       <div class="rank">#${item.rank}</div>
       ${avatar(item, 'row-avatar')}
       <div class="row-main">
@@ -167,7 +193,7 @@ async function loadPanels(){
     $('trendingList').innerHTML = items.length
       ? items.map(it => `
           <li>
-            <a class="panel-link" href="/r/${it.id}" target="_blank" rel="noopener nofollow">
+            <a class="panel-link" href="${url(`/r/${it.id}`)}" target="_blank" rel="noopener nofollow">
               ${avatar(it, 'avatar')}<span class="name">${escapeHtml(it.target)}</span>
             </a>
             <span class="clicks">${fmtInt(it.perHour)} clicks/h</span>
@@ -180,7 +206,7 @@ async function loadPanels(){
     $('activityList').innerHTML = items.length
       ? items.map(it => `
           <li>
-            <a class="panel-link" href="/r/${it.id}" target="_blank" rel="noopener nofollow">
+            <a class="panel-link" href="${url(`/r/${it.id}`)}" target="_blank" rel="noopener nofollow">
               ${avatar(it, 'avatar')}
               <span class="name">${escapeHtml(it.target)}
                 <span class="meta">at #${it.rank} · ${fmtMoney(it.price)}</span>
@@ -410,7 +436,7 @@ async function refreshAll(){
 /* SSE pushes board changes the moment a bid clears; the interval is a
    fallback so counters stay fresh if the stream drops. */
 function connectLive(){
-  const es = new EventSource('/api/events');
+  const es = new EventSource(url('/api/events'));
   es.addEventListener('board', () => refreshAll());
   es.onerror = () => { /* EventSource retries on its own */ };
 }

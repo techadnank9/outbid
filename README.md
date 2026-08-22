@@ -105,15 +105,58 @@ In production the server binds `0.0.0.0`, marks the visitor cookie `Secure`, tru
 `X-Forwarded-For` from the platform proxy, and refuses to start without a Stripe key.
 `/healthz` is the readiness probe.
 
+## Split deploy: outbit.web.app + Render
+
+To serve the site from a Firebase `*.web.app` address on the free Spark plan, the frontend and
+backend go to different places. Firebase Hosting can only serve static files (its rewrites reach
+Cloud Functions and Cloud Run, never an arbitrary external URL), so it gets the static bundle and
+Render runs the API.
+
+| piece | where | why |
+|---|---|---|
+| frontend (`index.html`, `styles.css`, `app.js`) | Firebase Hosting → `outbit.web.app` | free on Spark, static-only is fine, global CDN |
+| backend (Node) | Render web service | needs outbound calls to Stripe and to scraped sites |
+| database (SQLite) | Render persistent disk at `/var/data` | must survive restarts, one writer |
+
+**1. Deploy the API to Render** using `render.yaml`, and set `ALLOWED_ORIGINS`:
+
+```
+ALLOWED_ORIGINS=https://outbit.web.app,https://outbit.firebaseapp.com
+PUBLIC_ORIGIN=https://outbit.web.app
+```
+
+Firebase serves the site on both hostnames, so both need to be allowed. `PUBLIC_ORIGIN` is the
+frontend, not the API — it builds the Stripe redirects, which must land back on the site the user
+was actually looking at.
+
+**2. Build and deploy the frontend:**
+
+```bash
+API_BASE=https://outbit-api.onrender.com DATAFAST_WEBSITE_ID=dfid_... DATAFAST_DOMAIN=outbit.web.app npm run build
+firebase deploy --only hosting
+```
+
+`build.js` writes `dist/` with the API origin baked into `config.js`. It refuses to build without
+`API_BASE`, since a static bundle with no backend is silently broken.
+
+### What cross-origin changes
+
+Two things do not survive the split and are handled explicitly:
+
+- **Cookies.** Browsers block third-party cookies, so the API cannot identify a visitor with one.
+  The client generates a UUID, keeps it in `localStorage`, and sends it as `x-visitor-id`. The
+  cookie remains only as a same-origin convenience.
+- **CORS.** Every API response, including errors, carries the allow header — otherwise a failed
+  bid surfaces in the browser as an opaque network error instead of a readable message.
+
+Single-origin deployment still works unchanged: run the Node server and it serves the frontend
+itself, with `config.js` defaulting to same-origin and CORS off.
+
 ### Domains
 
-Render gives you `<service>.onrender.com` free, which runs the whole app. A Firebase `*.web.app`
-subdomain cannot: free Firebase Hosting is static-only, the Spark plan blocks the outbound calls
-this app makes to Stripe and to the sites it scrapes, and Cloud Run's ephemeral disk would erase
-the database.
-
-A custom domain is worth buying before you charge people — listings here are sold partly for their
-SEO value, and a link from a platform subdomain carries less of it.
+A custom domain is still worth buying before you charge people — listings here are sold partly for
+their SEO value, and a link from a platform subdomain carries less of it. Point it at Firebase
+Hosting when you do; only `PUBLIC_ORIGIN` and `ALLOWED_ORIGINS` need updating.
 
 ### Backups
 

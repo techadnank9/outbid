@@ -19,6 +19,23 @@ const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0
    client could spoof its IP and walk straight past the rate limiter. */
 const TRUST_PROXY = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
 const SECURE_COOKIES = process.env.NODE_ENV === 'production';
+
+/* When the frontend is hosted on a different origin (e.g. Firebase Hosting)
+   the API must opt that origin in explicitly. Empty = same-origin only. */
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(o => o.trim().replace(/\/$/, '')).filter(Boolean);
+
+function corsHeaders(req){
+  const origin = (req.headers.origin || '').replace(/\/$/, '');
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) return null;
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    'access-control-allow-headers': 'content-type,x-visitor-id',
+    'access-control-max-age': '86400',
+    vary: 'Origin'
+  };
+}
 const PUBLIC_DIR = new URL('./public/', import.meta.url).pathname;
 
 const MIME = {
@@ -75,15 +92,23 @@ function send(res, status, payload, headers = {}){
   res.end(body);
 }
 
-/* A visitor id in a cookie is what makes the online/visitor counts real. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* Identifies a visitor for the online/visitor counts.
+   A cross-origin frontend cannot rely on a cookie — browsers block
+   third-party cookies outright — so the client sends its own id in a
+   header, and the cookie is only a same-origin convenience. */
 function visitorFrom(req, res){
+  const fromHeader = String(req.headers['x-visitor-id'] || '');
+  if (UUID_RE.test(fromHeader)) return fromHeader.toLowerCase();
+
   const cookies = Object.fromEntries(
     (req.headers.cookie || '').split(';')
       .map(c => c.trim().split('='))
       .filter(p => p[0])
   );
   let id = cookies.vid;
-  if (!id || !/^[0-9a-f-]{36}$/.test(id)){
+  if (!id || !UUID_RE.test(id)){
     id = randomUUID();
     res.setHeader('set-cookie',
       `vid=${id}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`
@@ -139,7 +164,15 @@ const server = createServer(async (req, res) => {
   const { pathname } = url;
   const key = `${req.method} ${pathname}`;
 
+  const cors = corsHeaders(req);
+
   try {
+    /* ── CORS preflight ── */
+    if (req.method === 'OPTIONS'){
+      res.writeHead(cors ? 204 : 403, cors || {});
+      return res.end();
+    }
+
     /* ── Health check (platform probes hit this) ── */
     if (key === 'GET /healthz'){
       return send(res, 200, { ok: true, listings: store.boardCount(), uptime: Math.round(process.uptime()) });
@@ -164,7 +197,8 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, {
         'content-type': 'text/event-stream',
         'cache-control': 'no-cache',
-        connection: 'keep-alive'
+        connection: 'keep-alive',
+        ...(cors || {})
       });
       res.write('retry: 3000\n\n');
       const unsubscribe = subscribe(res);
@@ -203,10 +237,10 @@ const server = createServer(async (req, res) => {
         }
       }
 
-      return send(res, 200, await handler(ctx));
+      return send(res, 200, await handler(ctx), cors || {});
     }
 
-    if (pathname.startsWith('/api/')) return send(res, 404, { error: 'Unknown endpoint' });
+    if (pathname.startsWith('/api/')) return send(res, 404, { error: 'Unknown endpoint' }, cors || {});
 
     /* ── Static files ── */
     if (req.method === 'GET' || req.method === 'HEAD'){
@@ -215,7 +249,7 @@ const server = createServer(async (req, res) => {
     return send(res, 405, { error: 'Method not allowed' });
 
   } catch (err){
-    if (err instanceof HttpError) return send(res, err.status, { error: err.message });
+    if (err instanceof HttpError) return send(res, err.status, { error: err.message }, cors || {});
     console.error(`[error] ${key}:`, err);
     return send(res, 500, { error: 'Something went wrong on our end.' });
   }
@@ -225,6 +259,7 @@ server.listen(PORT, HOST, () => {
   console.log(`outbid listening on http://${HOST}:${PORT}`);
   console.log(`payments: ${stripeEnabled ? 'stripe (live checkout)' : 'DEV MODE — bids confirm without payment'}`);
   console.log(`env: ${process.env.NODE_ENV || 'development'} | trust proxy: ${TRUST_PROXY}`);
+  console.log(`cors: ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(', ') : 'same-origin only'}`);
   console.log(`analytics: ${analyticsEnabled ? 'datafast enabled' : 'disabled (set DATAFAST_WEBSITE_ID + DATAFAST_DOMAIN)'}`);
   console.log(`listings on board: ${store.boardCount()}`);
 });
