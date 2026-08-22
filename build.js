@@ -4,8 +4,8 @@
  * Hosting only serves files, so for a split deploy the same templating has to
  * happen here, at build time.
  *
- *   API_BASE=https://outbit-api.onrender.com \
- *   DATAFAST_WEBSITE_ID=dfid_... DATAFAST_DOMAIN=outbit.web.app \
+ *   API_BASE=https://outbid.onrender.com \
+ *   DATAFAST_WEBSITE_ID=dfid_... DATAFAST_DOMAIN=outbidloll.web.app \
  *   npm run build
  */
 
@@ -23,7 +23,7 @@ if (!API_BASE){
   console.error(
     'API_BASE is required.\n\n' +
     'The static build has no backend of its own — it needs the URL of the\n' +
-    'deployed API, e.g. API_BASE=https://outbit-api.onrender.com npm run build\n'
+    'deployed API, e.g. API_BASE=https://outbid.onrender.com npm run build\n'
   );
   process.exit(1);
 }

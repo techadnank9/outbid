@@ -12,7 +12,7 @@
 
 services:
   - type: web
-    name: outbidloll
+    name: outbid
     runtime: node
     plan: starter          # a disk requires a paid instance; free tier also sleeps
     region: oregon
@@ -23,7 +23,7 @@ services:
     healthCheckPath: /healthz
 
     disk:
-      name: outbidloll-data
+      name: outbid-data
       mountPath: /var/data
       sizeGB: 1
 
@@ -33,7 +33,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DB_PATH
-        value: /var/data/outbit.db
+        value: /var/data/outbid.db
 
       # Set in the Render dashboard, not here — never commit secrets.
       - key: STRIPE_SECRET_KEY

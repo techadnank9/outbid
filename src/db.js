@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const DB_PATH = process.env.DB_PATH || new URL('../data/outbit.db', import.meta.url).pathname;
+const DB_PATH = process.env.DB_PATH || new URL('../data/outbid.db', import.meta.url).pathname;
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 

@@ -1,4 +1,4 @@
-# Outbit
+# Outbid
 
 A pay-to-rank leaderboard. Buy a spot, the highest bid sits at #1, and anyone can take it from you
 by paying more. Real bids, real Stripe checkout, real metadata scraping, real click tracking. No
@@ -64,7 +64,7 @@ own property:
 
 ```bash
 export DATAFAST_WEBSITE_ID=dfid_...        # from your DataFast dashboard
-export DATAFAST_DOMAIN=outbit.web.app
+export DATAFAST_DOMAIN=outbidloll.web.app
 export DATAFAST_SHARE_URL=https://datafa.st/share/...   # optional public dashboard
 ```
 
@@ -94,8 +94,8 @@ Set these in the Render dashboard (never commit them):
 |---|---|
 | `STRIPE_SECRET_KEY` | `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
-| `PUBLIC_ORIGIN` | the public site URL, e.g. `https://outbit.web.app` |
-| `ALLOWED_ORIGINS` | `https://outbit.web.app,https://outbit.firebaseapp.com` |
+| `PUBLIC_ORIGIN` | the public site URL, e.g. `https://outbidloll.web.app` |
+| `ALLOWED_ORIGINS` | `https://outbidloll.web.app,https://outbidloll.firebaseapp.com` |
 | `DATAFAST_WEBSITE_ID` / `DATAFAST_DOMAIN` | optional analytics |
 
 `PUBLIC_ORIGIN` must match the live URL exactly — it builds the Stripe success and cancel
@@ -119,15 +119,15 @@ Render runs the API.
 
 | piece | where | why |
 |---|---|---|
-| frontend (`index.html`, `styles.css`, `app.js`) | Firebase Hosting → `outbit.web.app` | free on Spark, static-only is fine, global CDN |
+| frontend (`index.html`, `styles.css`, `app.js`) | Firebase Hosting → `outbidloll.web.app` | free on Spark, static-only is fine, global CDN |
 | backend (Node) | Render web service | needs outbound calls to Stripe and to scraped sites |
 | database (SQLite) | Render persistent disk at `/var/data` | must survive restarts, one writer |
 
 **1. Deploy the API to Render** using `render.yaml`, and set `ALLOWED_ORIGINS`:
 
 ```
-ALLOWED_ORIGINS=https://outbit.web.app,https://outbit.firebaseapp.com
-PUBLIC_ORIGIN=https://outbit.web.app
+ALLOWED_ORIGINS=https://outbidloll.web.app,https://outbidloll.firebaseapp.com
+PUBLIC_ORIGIN=https://outbidloll.web.app
 ```
 
 Firebase serves the site on both hostnames, so both need to be allowed. `PUBLIC_ORIGIN` is the
@@ -137,7 +137,7 @@ was actually looking at.
 **2. Build and deploy the frontend:**
 
 ```bash
-API_BASE=https://outbit-api.onrender.com DATAFAST_WEBSITE_ID=dfid_... DATAFAST_DOMAIN=outbit.web.app npm run build
+API_BASE=https://outbid.onrender.com DATAFAST_WEBSITE_ID=dfid_... DATAFAST_DOMAIN=outbidloll.web.app npm run build
 firebase deploy --only hosting
 ```
 
@@ -206,7 +206,7 @@ customer's rows on request.
 The database is one file. Back it up on a schedule:
 
 ```bash
-sqlite3 /var/data/outbit.db ".backup '/var/data/backup-$(date +%F).db'"
+sqlite3 /var/data/outbid.db ".backup '/var/data/backup-$(date +%F).db'"
 ```
 
 ## Measured performance

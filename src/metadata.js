@@ -5,7 +5,7 @@ const FETCH_TIMEOUT_MS = 8000;
 const MAX_HTML_BYTES = 512 * 1024;
 
 const UA = process.env.CRAWLER_UA
-  || 'Mozilla/5.0 (compatible; outbit-bot/1.0; +https://outbit.web.app)';
+  || 'Mozilla/5.0 (compatible; outbid-bot/1.0; +https://outbidloll.web.app)';
 
 /* Hosts that must never be fetched — blocks SSRF into the local network. */
 function isBlockedHost(host){

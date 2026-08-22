@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 const PORT = 4377;
 const BASE = `http://127.0.0.1:${PORT}`;
-const FRONTEND = 'https://outbit.web.app';
+const FRONTEND = 'https://outbidloll.web.app';
 const dir = mkdtempSync(join(tmpdir(), 'outbid-split-'));
 let child;
 
@@ -19,7 +19,7 @@ before(async () => {
     env: {
       ...process.env, PORT: String(PORT), DB_PATH: join(dir, 's.db'),
       NODE_ENV: 'test', STRIPE_SECRET_KEY: '',
-      ALLOWED_ORIGINS: `${FRONTEND},https://outbit.firebaseapp.com`
+      ALLOWED_ORIGINS: `${FRONTEND},https://outbidloll.firebaseapp.com`
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });

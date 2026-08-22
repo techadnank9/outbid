@@ -85,7 +85,7 @@ describe('extracting payment details', () => {
 const PORT = 4388;
 const BASE = `http://127.0.0.1:${PORT}`;
 const ADMIN = 'test-admin-token-value';
-const dir = mkdtempSync(join(tmpdir(), 'outbit-pay-'));
+const dir = mkdtempSync(join(tmpdir(), 'outbid-pay-'));
 let child;
 
 async function boot(env){

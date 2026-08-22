@@ -1,9 +1,9 @@
 {
-  "name": "outbit",
+  "name": "outbid",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Outbit \u2014 pay-to-rank leaderboard. Real bids, real payments, real click tracking.",
+  "description": "Outbid \u2014 pay-to-rank leaderboard. Real bids, real payments, real click tracking.",
   "engines": {
     "node": ">=24"
   },

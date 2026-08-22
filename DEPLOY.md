@@ -1,4 +1,4 @@
-# Deploying Outbit
+# Deploying Outbid
 
 Frontend on Firebase Hosting (`outbidloll.web.app`), API + database on Render.
 
@@ -10,7 +10,7 @@ Order matters: **Render first**, because the frontend needs the API's URL baked 
 
 1. [dashboard.render.com](https://dashboard.render.com) → **New +** → **Blueprint**
 2. Connect `techadnank9/outbid`. Render reads `render.yaml` and proposes a web service with a 1GB disk.
-3. Apply. Note the URL it gives you, e.g. `https://outbit.onrender.com`.
+3. Apply. Note the URL it gives you, e.g. `https://outbid.onrender.com`.
 
 Then in the service's **Environment** tab, add:
 
@@ -105,7 +105,7 @@ broken page, `PUBLIC_ORIGIN` is wrong.
 The database is one file on the Render disk. From the service's shell:
 
 ```bash
-sqlite3 /var/data/outbit.db ".backup '/var/data/backup-$(date +%F).db'"
+sqlite3 /var/data/outbid.db ".backup '/var/data/backup-$(date +%F).db'"
 ```
 
 Worth doing before any schema change, and on a schedule once real money is moving through it.

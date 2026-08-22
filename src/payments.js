@@ -7,7 +7,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-const BRAND          = process.env.BRAND_NAME || 'Outbit';
+const BRAND          = process.env.BRAND_NAME || 'Outbid';
 const SECRET_KEY     = process.env.STRIPE_SECRET_KEY || '';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
