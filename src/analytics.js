@@ -10,6 +10,13 @@ const WEBSITE_ID = process.env.DATAFAST_WEBSITE_ID || '';   // dfid_...
 const DOMAIN     = process.env.DATAFAST_DOMAIN || '';       // your-domain.com
 const SHARE_URL  = process.env.DATAFAST_SHARE_URL || '';    // public dashboard
 
+/* DataFast ships two trackers: script.js (the default from the dashboard)
+   and script.cookieless.js, which sets no cookies and so needs no consent
+   banner. Switch with DATAFAST_SCRIPT=cookieless. */
+const SCRIPT = process.env.DATAFAST_SCRIPT === 'cookieless'
+  ? 'https://datafa.st/js/script.cookieless.js'
+  : 'https://datafa.st/js/script.js';
+
 export const analyticsEnabled = Boolean(WEBSITE_ID && DOMAIN);
 
 function attr(value){
@@ -22,7 +29,7 @@ function attr(value){
    real markup in the document — it cannot be configured from JS after load. */
 export function analyticsTag(){
   if (!analyticsEnabled) return '';
-  return `<script defer src="https://datafa.st/js/script.cookieless.js" `
+  return `<script defer src="${SCRIPT}" `
        + `data-website-id="${attr(WEBSITE_ID)}" data-domain="${attr(DOMAIN)}"></script>`;
 }
 
@@ -39,7 +46,7 @@ export function statsTargetAttrs(){
 /* Injected config participates in the ETag — otherwise a config change would
    keep serving the previously cached HTML. */
 export const analyticsFingerprint = createHash('sha1')
-  .update(`${WEBSITE_ID}|${DOMAIN}|${SHARE_URL}`)
+  .update(`${WEBSITE_ID}|${DOMAIN}|${SHARE_URL}|${SCRIPT}`)
   .digest('hex')
   .slice(0, 8);
 
