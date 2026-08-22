@@ -12,7 +12,7 @@
 
 services:
   - type: web
-    name: outbid
+    name: outbidloll
     runtime: node
     plan: starter          # a disk requires a paid instance; free tier also sleeps
     region: oregon
@@ -23,7 +23,7 @@ services:
     healthCheckPath: /healthz
 
     disk:
-      name: outbid-data
+      name: outbidloll-data
       mountPath: /var/data
       sizeGB: 1
 
