@@ -61,8 +61,6 @@ function durationSince(ts){
   return d === 1 ? '1 day' : `${d} days`;
 }
 
-let promo = null;   // the validated promo code, or null
-
 /* ── State ────────────────────────────────────────────────────── */
 let state = {
   page: 1,
@@ -358,8 +356,7 @@ async function loadStats(){
     $('revenueAmount').textContent = fmtInt(Math.round(s.revenue));
     $('launchAge').textContent = durationSince(s.launchedAt);
 
-    // A promo fixes the price, so the periodic refresh must not reset it.
-    if (!state.bidEdited && !promo) setBid(s.nextBid);
+    if (!state.bidEdited) setBid(s.nextBid);
 
     $('minBid').textContent = fmtMoney(s.minBid);
     document.body.classList.toggle('dev-payments', s.payments === 'dev');
@@ -456,57 +453,6 @@ $('urlInput').addEventListener('input', (e) => {
   previewSoon();
 });
 
-/* ── Promo codes ──────────────────────────────────────────────── */
-
-$('promoToggle')?.addEventListener('click', () => {
-  const entry = $('promoEntry');
-  entry.hidden = !entry.hidden;
-  $('promoToggle').hidden = !entry.hidden ? true : false;
-  if (!entry.hidden) $('promoInput').focus();
-});
-
-let promoTimer;
-$('promoInput')?.addEventListener('input', () => {
-  clearTimeout(promoTimer);
-  promoTimer = setTimeout(checkPromo, 400);
-});
-
-async function checkPromo(){
-  const code = $('promoInput').value.trim();
-  const status = $('promoStatus');
-  promo = null;
-
-  if (!code){ status.textContent = ''; status.className = 'promo-status'; syncBidForPromo(); return; }
-
-  try {
-    const res = await api(`/api/promo?code=${encodeURIComponent(code)}`);
-    if (res.valid){
-      promo = res;
-      status.className = 'promo-status ok';
-      status.textContent = `Free listing — ${fmtInt(res.remaining)} of ${fmtInt(res.total)} left`;
-    } else {
-      status.className = 'promo-status bad';
-      status.textContent = res.reason === 'exhausted'
-        ? 'All claimed — this code is finished'
-        : 'Not a valid code';
-    }
-  } catch {
-    status.className = 'promo-status bad';
-    status.textContent = 'Could not check that code';
-  }
-  syncBidForPromo();
-  previewSoon();
-}
-
-/* A valid code fixes the price, so the bid stepper would be misleading. */
-function syncBidForPromo(){
-  const wrap = $('bidInput')?.closest('.bid-control');
-  if (!wrap) return;
-  wrap.classList.toggle('locked', Boolean(promo));
-  if (promo) setBid(promo.amount);
-  $('outbidBtn').textContent = promo ? 'Claim free' : 'Outbid';
-}
-
 /* ── Placing a bid ────────────────────────────────────────────── */
 $('claimForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -525,8 +471,7 @@ $('claimForm').addEventListener('submit', async (e) => {
       body: JSON.stringify({
         target,
         amount: currentBid(),
-        category: chosenCategory || undefined,
-        promo: promo ? $('promoInput').value.trim() : undefined
+        category: chosenCategory || undefined
       })
     });
 
@@ -537,20 +482,12 @@ $('claimForm').addEventListener('submit', async (e) => {
     }
 
     goal('bid_confirmed', { target: data.target, rank: data.rank, amount: data.amount });
-    toast(data.promo
-      ? `${data.target} is live at #${data.rank} — free with ${data.promo}. ${fmtInt(data.remaining)} left.`
-      : `${data.target} is live at #${data.rank} for ${fmtMoney(data.amount)}.`);
+    toast(`${data.target} is live at #${data.rank} for ${fmtMoney(data.amount)}.`);
     $('urlInput').value = '';
     cancelPreview();
     state.bidEdited = false;
     setChosenCategory('', false);
     $('catPicker')?.removeAttribute('data-touched');
-    if (promo){
-      $('promoInput').value = '';
-      promo = null;
-      $('promoStatus').textContent = '';
-      syncBidForPromo();
-    }
     await refreshAll();
   } catch (err){
     toast(err.message, true);

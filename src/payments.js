@@ -64,6 +64,9 @@ export async function createCheckoutSession({ listing, amountCents, rank, origin
     // Stripe email the receipt itself rather than us having to.
     customer_creation: 'always',
     billing_address_collection: 'auto',
+    // Stripe renders its own promotion-code field and enforces the limits,
+    // so discounts never have to be trusted from our side.
+    allow_promotion_codes: true,
     metadata: { listing_id: listing.id, target: listing.target, rank },
     line_items: [{
       quantity: 1,
@@ -170,6 +173,64 @@ export async function ensureWebhookEndpoint(apiOrigin){
   });
 
   return { status: 'created', id: created.id, url, secret: created.secret || null };
+}
+
+/* ── Promotion codes ──────────────────────────────────────────────
+   Created through the API so nobody has to build them in the Stripe UI.
+   A coupon holds the discount; a promotion code is the string customers
+   type. Redemption limits are enforced by Stripe, which is the only place
+   that can count them correctly. */
+export async function ensurePromotionCode({ code, percentOff = 100, maxRedemptions = 100 }){
+  if (!stripeEnabled) return { status: 'skipped', reason: 'no stripe key' };
+
+  const listed = await fetch(
+    `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`,
+    { headers: { authorization: `Bearer ${SECRET_KEY}` } }
+  );
+  if (!listed.ok){
+    const err = await listed.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Could not list promotion codes (${listed.status})`);
+  }
+
+  const existing = (await listed.json()).data?.[0];
+  if (existing){
+    return {
+      status: 'exists', code: existing.code, id: existing.id,
+      max: existing.max_redemptions, redeemed: existing.times_redeemed
+    };
+  }
+
+  // A coupon carries the discount; reuse one named after the code.
+  const coupon = await stripeRequest('coupons', {
+    percent_off: percentOff,
+    duration: 'once',
+    name: `${code} — ${percentOff}% off`
+  }, { idempotencyKey: `coupon_${code}` });
+
+  const promo = await stripeRequest('promotion_codes', {
+    coupon: coupon.id,
+    code,
+    max_redemptions: maxRedemptions
+  }, { idempotencyKey: `promo_${code}` });
+
+  return { status: 'created', code: promo.code, id: promo.id,
+           max: promo.max_redemptions, redeemed: promo.times_redeemed };
+}
+
+export async function listPromotionCodes(){
+  if (!stripeEnabled) return [];
+  const res = await fetch('https://api.stripe.com/v1/promotion_codes?limit=100', {
+    headers: { authorization: `Bearer ${SECRET_KEY}` }
+  });
+  if (!res.ok) return [];
+  return (await res.json()).data.map(p => ({
+    code: p.code,
+    active: p.active,
+    percentOff: p.coupon?.percent_off ?? null,
+    max: p.max_redemptions,
+    redeemed: p.times_redeemed,
+    remaining: p.max_redemptions == null ? null : p.max_redemptions - p.times_redeemed
+  }));
 }
 
 /* ── Webhook signature verification ──────────────────────────── */

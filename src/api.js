@@ -5,7 +5,7 @@ import { CATEGORIES, CATEGORY_BY_SLUG, classify } from './categories.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
-  extractPaymentDetails
+  extractPaymentDetails, ensurePromotionCode, listPromotionCodes
 } from './payments.js';
 
 export const MIN_BID_CENTS = 500;          // $5 floor
@@ -227,6 +227,30 @@ export const routes = {
     };
   },
 
+  /* Promotion codes live in Stripe, which is the only place that can count
+     redemptions correctly. These just read and create them. */
+  'GET /api/admin/promos': async (ctx) => {
+    requireAdmin(ctx);
+    if (!stripeEnabled) throw new HttpError(400, 'Stripe is not configured.');
+    return { items: await listPromotionCodes() };
+  },
+
+  'POST /api/admin/promos': async (ctx) => {
+    requireAdmin(ctx);
+    if (!stripeEnabled) throw new HttpError(400, 'Stripe is not configured.');
+    const { code, percentOff = 100, max = 100 } = ctx.body || {};
+    if (!code || !/^[A-Za-z0-9_-]{3,32}$/.test(code)){
+      throw new HttpError(400, 'Code must be 3-32 letters, numbers, - or _.');
+    }
+    const pct = Number(percentOff);
+    if (!(pct > 0 && pct <= 100)) throw new HttpError(400, 'percentOff must be 1-100.');
+    return ensurePromotionCode({
+      code: String(code).toUpperCase(),
+      percentOff: pct,
+      maxRedemptions: Math.floor(Number(max))
+    });
+  },
+
   /* Correct a mis-classified listing. */
   'POST /api/admin/category': (ctx) => {
     requireAdmin(ctx);
@@ -239,50 +263,6 @@ export const routes = {
     store.setCategory(listing.id, category);
     invalidate();
     return { target: listing.target, category };
-  },
-
-  /* Lets the form show "47 of 100 left" before anyone commits. */
-  'GET /api/promo': (ctx) => {
-    const code = ctx.query.get('code');
-    if (!code) throw new HttpError(400, 'No code given.');
-    return store.promoStatus(code);
-  },
-
-  'GET /api/admin/promos': (ctx) => {
-    requireAdmin(ctx);
-    return {
-      items: store.listPromos().map(p => ({
-        code: p.code,
-        amount: p.amount_cents / 100,
-        redeemed: p.redeemed,
-        max: p.max_redemptions,
-        remaining: p.max_redemptions - p.redeemed,
-        active: Boolean(p.active)
-      }))
-    };
-  },
-
-  'POST /api/admin/promos': (ctx) => {
-    requireAdmin(ctx);
-    const { code, amount, max, active } = ctx.body || {};
-    if (!code || !/^[A-Za-z0-9_-]{3,32}$/.test(code)){
-      throw new HttpError(400, 'Code must be 3-32 letters, numbers, - or _.');
-    }
-    const cents = Math.round(Number(amount ?? 5) * 100);
-    if (!Number.isFinite(cents) || cents < MIN_BID_CENTS){
-      throw new HttpError(400, `A code must be worth at least $${MIN_BID_CENTS / 100}.`);
-    }
-    const limit = Math.floor(Number(max ?? 100));
-    if (!Number.isInteger(limit) || limit < 1){
-      throw new HttpError(400, 'Redemption limit must be a positive whole number.');
-    }
-    const saved = store.upsertPromo({
-      code, amountCents: cents, maxRedemptions: limit,
-      active: active === undefined ? 1 : (active ? 1 : 0)
-    });
-    invalidate();
-    return { code: saved.code, amount: saved.amount_cents / 100,
-             max: saved.max_redemptions, redeemed: saved.redeemed };
   },
 
   /* Resolve a URL/@handle into a real listing preview + the rank a bid takes. */
@@ -320,8 +300,6 @@ export const routes = {
       minimum: (current ? current + 100 : MIN_BID_CENTS) / 100
     };
 
-    if (ctx.body.promo) result.promo = store.promoStatus(ctx.body.promo);
-
     if (ctx.body.amount !== undefined && ctx.body.amount !== ''){
       const cents = parseAmount(ctx.body.amount);
       result.amount = cents / 100;
@@ -345,29 +323,10 @@ export const routes = {
       throw e;
     }
 
-    /* A promo grants a listing at the code's value, so the amount field is
-       not what decides the price. Validate the code before touching Stripe. */
-    const promoCode = ctx.body.promo ? String(ctx.body.promo).trim() : '';
-    let promo = null;
-    if (promoCode){
-      promo = store.promoStatus(promoCode);
-      if (!promo.valid){
-        throw new HttpError(400,
-          promo.reason === 'exhausted'
-            ? 'That code has been fully claimed.'
-            : 'That promo code is not valid.');
-      }
-    }
-
-    const cents = promo ? Math.round(promo.amount * 100) : parseAmount(ctx.body.amount);
+    const cents = parseAmount(ctx.body.amount);
     const existing = store.findListing(parsed.target);
     const current = existing ? store.highestPaidBid(existing.id) : 0;
 
-    /* A free listing cannot be used to take a rank someone paid for. */
-    if (promo && current){
-      throw new HttpError(409,
-        `${parsed.target} is already on the board. Promo codes are for new listings only.`);
-    }
 
     if (current && cents <= current){
       throw new HttpError(409,
@@ -396,27 +355,6 @@ export const routes = {
 
     const rank = store.rankForAmount(cents, listing.id);
     const bidRef = randomUUID();
-
-    if (promo){
-      // Claim the slot first: if the last one just went, nothing is created.
-      const claim = store.redeemPromo(promoCode, listing.id);
-      if (!claim.ok){
-        throw new HttpError(409,
-          claim.reason === 'already_used'
-            ? 'That code has already been used for this listing.'
-            : 'That code has just been fully claimed.');
-      }
-      store.createBid({
-        listingId: listing.id, amountCents: claim.amountCents,
-        status: 'paid', sessionId: `promo_${bidRef}`, provider: 'promo'
-      });
-      broadcast('board', { reason: 'promo', target: listing.target, rank });
-      return {
-        status: 'confirmed', rank, target: listing.target,
-        amount: claim.amountCents / 100, promo: promoCode.toUpperCase(),
-        remaining: claim.remaining
-      };
-    }
 
     if (!stripeEnabled){
       // Dev mode: confirm immediately so the flow is exercisable without keys.

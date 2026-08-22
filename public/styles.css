@@ -660,38 +660,3 @@ a.row{color:inherit;text-decoration:none}
   .cat-picker{flex:1 1 auto}
   .cat-picker-menu{width:100%;right:auto;left:0}
 }
-
-/* ── Promo code ─────────────────────────────────────── */
-.promo-row{margin-top:12px;min-height:26px}
-.promo-toggle{
-  font-size:14.5px;color:var(--muted-foreground);
-  text-decoration:underline;text-underline-offset:3px;
-  transition:color .15s;
-}
-.promo-toggle:hover{color:var(--primary)}
-.promo-entry{
-  display:flex;align-items:center;justify-content:center;gap:12px;
-  flex-wrap:wrap;
-  animation:preview-in .18s ease-out;
-}
-.promo-entry input{
-  height:40px;width:180px;
-  padding:0 14px;
-  border:1px solid var(--border);border-radius:999px;
-  background:var(--card);
-  font-size:14.5px;font-family:var(--font-mono);
-  letter-spacing:.06em;text-transform:uppercase;
-  outline:0;transition:border-color .15s,box-shadow .15s;
-}
-.promo-entry input:focus{
-  border-color:var(--primary);
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent);
-}
-.promo-entry input::placeholder{text-transform:none;letter-spacing:normal;font-family:var(--font-sans)}
-.promo-status{font-size:14px;font-weight:500}
-.promo-status.ok{color:var(--live)}
-.promo-status.bad{color:var(--primary)}
-
-/* With a code applied the price is fixed, so the stepper is inert. */
-.bid-control.locked .step{opacity:.3;pointer-events:none}
-.bid-control.locked .bid-input{pointer-events:none}

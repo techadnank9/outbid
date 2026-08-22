@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 
 import * as store from './src/db.js';
 import { routes, handleWebhook, subscribe, invalidate, HttpError } from './src/api.js';
-import { assertPaymentsConfigured, stripeEnabled, ensureWebhookEndpoint } from './src/payments.js';
+import { assertPaymentsConfigured, stripeEnabled, ensureWebhookEndpoint, ensurePromotionCode } from './src/payments.js';
 import { renderHtml, analyticsFingerprint, analyticsEnabled } from './src/analytics.js';
 
 assertPaymentsConfigured();
@@ -299,6 +299,7 @@ server.listen(PORT, HOST, () => {
   console.log(`analytics: ${analyticsEnabled ? 'datafast enabled' : 'disabled (set DATAFAST_WEBSITE_ID + DATAFAST_DOMAIN)'}`);
   console.log(`listings on board: ${store.boardCount()}`);
   registerWebhook();
+  registerLaunchPromo();
 });
 
 /* Register the Stripe webhook on boot, so a deploy is self-sufficient and
@@ -326,6 +327,21 @@ async function registerWebhook(){
     // Never block startup on this — payments still settle via the success
     // redirect, and the webhook can be registered by hand.
     console.error(`webhook: registration failed — ${err.message}`);
+  }
+}
+
+/* The launch promotion. Stripe enforces the 100-redemption limit and shows
+   the code field inside Checkout, so nothing here has to be trusted. */
+async function registerLaunchPromo(){
+  if (!stripeEnabled) return;
+  const code = process.env.LAUNCH_PROMO_CODE || 'HACKATHON';
+  const max = Number(process.env.LAUNCH_PROMO_MAX) || 100;
+  try {
+    const r = await ensurePromotionCode({ code, percentOff: 100, maxRedemptions: max });
+    if (r.status === 'created') console.log(`promo: created ${r.code} — ${r.max} free listings`);
+    else if (r.status === 'exists') console.log(`promo: ${r.code} exists — ${r.redeemed}/${r.max} used`);
+  } catch (err){
+    console.error(`promo: setup failed — ${err.message}`);
   }
 }
 

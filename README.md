@@ -78,6 +78,26 @@ their dashboard to attribute revenue back to traffic source, no code needed.
 
 Never hardcode a website id: traffic would report into someone else's dashboard.
 
+## Promotion codes
+
+Codes live in Stripe, not here. Checkout renders its own promotion-code field, and Stripe enforces
+the redemption limit — the only place that can count it correctly across concurrent checkouts.
+
+On boot the server creates a launch code if it does not already exist: `HACKATHON`, 100% off,
+capped at 100 redemptions. Override with `LAUNCH_PROMO_CODE` and `LAUNCH_PROMO_MAX`.
+
+Create or inspect codes without touching the Stripe dashboard:
+
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"code":"LAUNCH","percentOff":100,"max":50}' https://<api>/api/admin/promos
+
+curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<api>/api/admin/promos
+```
+
+Nothing on this side can grant a discount: the bid amount is validated against the $5 floor
+regardless of what the client sends, and there is no public promo endpoint to probe.
+
 ## Deploying the API to Render
 
 `render.yaml` is a ready-to-use blueprint. In Render: **New + → Blueprint**, pick this repo.
