@@ -26,7 +26,10 @@ function listingView(row, rank){
     title: row.title,
     description: row.description,
     icon: row.icon_url,
+    // `price` is the bid, which decides the rank. `paid` is what was
+    // actually charged — 0 when a promotion code covered it.
     price: row.amount_cents / 100,
+    paid: row.amount_paid_cents == null ? null : row.amount_paid_cents / 100,
     claimPrice: row.amount_cents / 100 + 1,
     clicks: row.clicks,
     category: row.category || 'other',

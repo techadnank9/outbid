@@ -26,6 +26,13 @@ const $ = (id) => document.getElementById(id);
 const fmtInt = (n) => Number(n).toLocaleString('en-US');
 const fmtMoney = (n) => '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
+/* Shows what was actually charged. A promotion code can bring that to zero,
+   and printing "$100,000" for a listing that paid nothing would be a lie. */
+function priceLabel(item){
+  if (item.paid === 0) return '<span class="price-free">Free</span>';
+  return fmtMoney(item.paid ?? item.price);
+}
+
 async function api(path, options){
   const res = await fetch(url(path), {
     ...options,
@@ -176,7 +183,7 @@ function rowHtml(item){
         </div>
       </div>
       <div class="row-right">
-        <div class="row-price">${fmtMoney(item.price)}</div>
+        <div class="row-price">${priceLabel(item)}</div>
         <div class="row-claim">claim this rank for ${fmtMoney(item.claimPrice)}</div>
       </div>
     </a>` + divider;
@@ -232,7 +239,7 @@ async function loadPanels(){
             <a class="panel-link" href="${url(`/r/${it.id}`)}" target="_blank" rel="noopener nofollow">
               ${avatar(it, 'avatar')}
               <span class="name">${escapeHtml(it.target)}
-                <span class="meta">at #${it.rank} · ${fmtMoney(it.price)}</span>
+                <span class="meta">at #${it.rank} · ${priceLabel(it)}</span>
               </span>
             </a>
             <span class="meta">${ago(it.at)}</span>

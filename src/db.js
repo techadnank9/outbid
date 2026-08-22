@@ -140,7 +140,12 @@ const BOARD_SELECT = `
     b.amount_cents,
     b.paid_at,
     l.clicks_total AS clicks,
-    l.category
+    l.category,
+    (SELECT b2.amount_paid_cents
+       FROM bids b2
+      WHERE b2.listing_id = l.id AND b2.status = 'paid'
+      ORDER BY b2.amount_cents DESC, b2.paid_at ASC
+      LIMIT 1) AS amount_paid_cents
   FROM listings l
   JOIN (
     SELECT listing_id,
@@ -431,7 +436,8 @@ export function listPromos(){
 /* ── Feeds ────────────────────────────────────────────────────── */
 export function recentActivity(limit = 5){
   return db.prepare(`
-    SELECT l.id, l.target, l.title, l.icon_url, b.amount_cents, b.paid_at
+    SELECT l.id, l.target, l.title, l.icon_url,
+           b.amount_cents, b.amount_paid_cents, b.paid_at
     FROM bids b JOIN listings l ON l.id = b.listing_id
     WHERE b.status = 'paid'
     ORDER BY b.paid_at DESC
