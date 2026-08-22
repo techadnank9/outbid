@@ -8,10 +8,13 @@
   if (saved) document.documentElement.dataset.theme = saved;
   else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
 
-  var btn = document.getElementById('themeToggle');
-  if (btn) btn.addEventListener('click', function(){
+  function toggle(){
     var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     store.set('theme', next);
+  }
+  ['themeToggle', 'themeToggleMobile'].forEach(function(id){
+    var btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', toggle);
   });
 })();

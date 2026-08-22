@@ -71,6 +71,9 @@ button{background:none;border:0;cursor:pointer}
 :root[data-theme="dark"] .theme-toggle .i-sun{display:block}
 :root[data-theme="dark"] .theme-toggle .i-moon{display:none}
 
+.brand-row{display:contents}
+.theme-toggle-mobile{display:none}
+
 /* ── Hero ───────────────────────────────────────────── */
 .hero{max-width:820px;margin:0 auto;padding:36px 24px 0;text-align:center}
 .stats-pill{
@@ -373,8 +376,26 @@ button{background:none;border:0;cursor:pointer}
   .panels{grid-template-columns:1fr}
 }
 @media (max-width:640px){
-  .nav{gap:16px;font-size:14px}
-  .nav a{display:none}
+  /* Stack the header so the page links stay reachable — they are real
+     pages now, not anchors, so hiding them strands them. */
+  .site-header{
+    flex-direction:column;align-items:stretch;gap:12px;
+    padding:16px 16px 14px;
+  }
+  .brand-row{display:flex;align-items:center;justify-content:space-between}
+  .nav{
+    gap:0;font-size:14.5px;
+    justify-content:space-between;
+    background:var(--muted);border:1px solid var(--border);
+    border-radius:999px;padding:4px;
+  }
+  .nav a{
+    flex:1;text-align:center;padding:7px 4px;border-radius:999px;
+    opacity:1;
+  }
+  .nav a:active{background:var(--card)}
+  .nav #themeToggle{display:none}
+  .theme-toggle-mobile{display:grid}
   .hero{padding-top:24px}
   .hero-title{margin-top:26px}
   .claim-form{flex-direction:column;align-items:stretch}
