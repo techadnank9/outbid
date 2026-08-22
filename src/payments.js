@@ -7,6 +7,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+const BRAND          = process.env.BRAND_NAME || 'Outbit';
 const SECRET_KEY     = process.env.STRIPE_SECRET_KEY || '';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
@@ -66,7 +67,7 @@ export async function createCheckoutSession({ listing, amountCents, rank, origin
         currency: 'usd',
         unit_amount: amountCents,
         product_data: {
-          name: `outbid.lol — rank #${rank} for ${listing.target}`,
+          name: `${BRAND} — rank #${rank} for ${listing.target}`,
           description: `Claims position #${rank} on the leaderboard at $${(amountCents / 100).toFixed(2)}.`
         }
       }

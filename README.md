@@ -1,10 +1,12 @@
-# outbid
+# Outbit
 
-A pay-to-rank leaderboard, in the shape of [outbid.lol](https://outbid.lol). Real bids, real
-Stripe checkout, real metadata scraping, real click tracking. No seed data and no mock objects —
-the board starts empty and fills up with whatever people actually pay for.
+A pay-to-rank leaderboard. Buy a spot, the highest bid sits at #1, and anyone can take it from you
+by paying more. Real bids, real Stripe checkout, real metadata scraping, real click tracking. No
+seed data and no mock objects — the board starts empty and fills up with whatever people pay for.
 
-Node 22+ and zero npm dependencies (SQLite comes from `node:sqlite`).
+Built by [@iamadnank9](https://x.com/iamadnank9).
+
+Node 24+ and zero npm dependencies (SQLite comes from `node:sqlite`).
 
 ## Run it
 
@@ -18,16 +20,18 @@ whole flow locally. A banner on the page says so. Setting `NODE_ENV=production` 
 key makes the server refuse to start, so dev mode can never reach production by accident.
 
 ```bash
-npm test     # 31 integration tests against a real server + real SQLite
+npm test     # 46 integration tests against a real server + real SQLite
 ```
 
 ## How it works
 
 ```
-server.js         HTTP, routing, static files, click redirects, SSE
+server.js         HTTP, routing, static files, click redirects, SSE, CORS
+build.js          builds dist/ for static hosting
 src/db.js         schema, migrations, every query
 src/metadata.js   URL/@handle parsing, SSRF guard, live page scraping
 src/payments.js   Stripe Checkout over the REST API + webhook verification
+src/analytics.js  DataFast tag + share links, injected from env
 src/api.js        handlers, validation, rate limiting, response cache
 public/           the frontend
 ```
@@ -55,18 +59,18 @@ first. Both paths are idempotent. Webhook signatures are verified with HMAC-SHA2
 
 ## Analytics (DataFast)
 
-outbid.lol uses [DataFast](https://datafa.st) — cookieless, no consent banner — and this does too.
-It stays inert until you point it at your own property:
+[DataFast](https://datafa.st) — cookieless, no consent banner. Inert until you point it at your
+own property:
 
 ```bash
 export DATAFAST_WEBSITE_ID=dfid_...        # from your DataFast dashboard
-export DATAFAST_DOMAIN=your-domain.com
+export DATAFAST_DOMAIN=outbit.web.app
 export DATAFAST_SHARE_URL=https://datafa.st/share/...   # optional public dashboard
 ```
 
 The tracker tag is templated into the HTML at serve time (it reads its config off data attributes,
 so it must be real markup). With `DATAFAST_SHARE_URL` set, the "see stats" and "Live stats" links
-point at your public dashboard, the way outbid.lol's do.
+point at your public dashboard.
 
 Two goals fire through `window.datafast()`: `checkout_started` when a bid reaches Stripe, and
 `bid_confirmed` when payment settles. DataFast also has a native Stripe integration — connect it in
@@ -74,7 +78,7 @@ their dashboard to attribute revenue back to traffic source, no code needed.
 
 Never hardcode a website id: traffic would report into someone else's dashboard.
 
-## Deploying to Render
+## Deploying the API to Render
 
 `render.yaml` is a ready-to-use blueprint. In Render: **New + → Blueprint**, pick this repo.
 
@@ -90,7 +94,8 @@ Set these in the Render dashboard (never commit them):
 |---|---|
 | `STRIPE_SECRET_KEY` | `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
-| `PUBLIC_ORIGIN` | your exact public URL, e.g. `https://oddbit.onrender.com` |
+| `PUBLIC_ORIGIN` | the public site URL, e.g. `https://outbit.web.app` |
+| `ALLOWED_ORIGINS` | `https://outbit.web.app,https://outbit.firebaseapp.com` |
 | `DATAFAST_WEBSITE_ID` / `DATAFAST_DOMAIN` | optional analytics |
 
 `PUBLIC_ORIGIN` must match the live URL exactly — it builds the Stripe success and cancel
@@ -105,7 +110,7 @@ In production the server binds `0.0.0.0`, marks the visitor cookie `Secure`, tru
 `X-Forwarded-For` from the platform proxy, and refuses to start without a Stripe key.
 `/healthz` is the readiness probe.
 
-## Split deploy: outbit.web.app + Render
+## Split deploy: Firebase Hosting + Render
 
 To serve the site from a Firebase `*.web.app` address on the free Spark plan, the frontend and
 backend go to different places. Firebase Hosting can only serve static files (its rewrites reach
@@ -163,7 +168,7 @@ Hosting when you do; only `PUBLIC_ORIGIN` and `ALLOWED_ORIGINS` need updating.
 The database is one file. Back it up on a schedule:
 
 ```bash
-sqlite3 /var/data/outbid.db ".backup '/var/data/backup-$(date +%F).db'"
+sqlite3 /var/data/outbit.db ".backup '/var/data/backup-$(date +%F).db'"
 ```
 
 ## Measured performance

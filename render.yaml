@@ -12,7 +12,7 @@
 
 services:
   - type: web
-    name: oddbit
+    name: outbit
     runtime: node
     plan: starter          # a disk requires a paid instance; free tier also sleeps
     region: oregon
@@ -23,7 +23,7 @@ services:
     healthCheckPath: /healthz
 
     disk:
-      name: outbid-data
+      name: outbit-data
       mountPath: /var/data
       sizeGB: 1
 
@@ -33,7 +33,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DB_PATH
-        value: /var/data/outbid.db
+        value: /var/data/outbit.db
 
       # Set in the Render dashboard, not here — never commit secrets.
       - key: STRIPE_SECRET_KEY
@@ -42,6 +42,9 @@ services:
         sync: false
       # Must match the public URL exactly, or Stripe redirects land nowhere.
       - key: PUBLIC_ORIGIN
+        sync: false
+      # Frontend origins allowed to call this API (Firebase serves both).
+      - key: ALLOWED_ORIGINS
         sync: false
       - key: DATAFAST_WEBSITE_ID
         sync: false
