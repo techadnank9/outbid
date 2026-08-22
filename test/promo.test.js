@@ -86,13 +86,26 @@ describe('promotion codes are Stripe-side only', () => {
 });
 
 describe('promo codes cannot buy the top spot', () => {
-  test('the promotion field is offered only on small bids', async () => {
+  test('a fixed discount is self-limiting at any bid size', async () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
     const { promoAllowedFor } = await import('../src/payments.js?cap');
-    assert.equal(promoAllowedFor(500), true, '$5 may use a code');
-    assert.equal(promoAllowedFor(2500), true, '$25 is the ceiling');
-    assert.equal(promoAllowedFor(2501), false, 'just above is refused');
-    assert.equal(promoAllowedFor(100_000_00), false,
-      'a 100% code must never discount a six-figure bid to nothing');
+
+    // $5 off is offered on every bid because it can only ever remove $5:
+    // free at $5, and a rounding error against a six-figure bid.
+    assert.equal(promoAllowedFor(500), true);
+    assert.equal(promoAllowedFor(100_000_00), true);
+
+    const off = 500;
+    assert.equal(Math.max(0, 500 - off), 0, '$5 bid becomes free');
+    assert.equal(Math.max(0, 100_000_00 - off), 9_999_500,
+      'a $100,000 bid still costs $99,995 — a code cannot buy the top spot');
+  });
+
+  test('a discount cap still applies when one is configured', async () => {
+    process.env.PROMO_MAX_BID_CENTS = '2500';
+    const { promoAllowedFor } = await import('../src/payments.js?capped');
+    assert.equal(promoAllowedFor(2500), true);
+    assert.equal(promoAllowedFor(2501), false);
+    delete process.env.PROMO_MAX_BID_CENTS;
   });
 });

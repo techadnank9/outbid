@@ -257,7 +257,6 @@ export const routes = {
         try {
           await ensurePromotionCode({
             code,
-            percentOff: 100,
             maxRedemptions: Number(process.env.LAUNCH_PROMO_MAX) || 100
           });
           found = await getPromotionCode(code);
@@ -290,15 +289,15 @@ export const routes = {
   'POST /api/admin/promos': async (ctx) => {
     requireAdmin(ctx);
     if (!stripeEnabled) throw new HttpError(400, 'Stripe is not configured.');
-    const { code, percentOff = 100, max = 100 } = ctx.body || {};
+    const { code, amountOff = 5, max = 100 } = ctx.body || {};
     if (!code || !/^[A-Za-z0-9_-]{3,32}$/.test(code)){
       throw new HttpError(400, 'Code must be 3-32 letters, numbers, - or _.');
     }
-    const pct = Number(percentOff);
-    if (!(pct > 0 && pct <= 100)) throw new HttpError(400, 'percentOff must be 1-100.');
+    const cents = Math.round(Number(amountOff) * 100);
+    if (!(cents > 0)) throw new HttpError(400, 'amountOff must be greater than zero.');
     return ensurePromotionCode({
       code: String(code).toUpperCase(),
-      percentOff: pct,
+      amountOffCents: cents,
       maxRedemptions: Math.floor(Number(max))
     });
   },

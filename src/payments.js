@@ -9,11 +9,12 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const BRAND          = process.env.BRAND_NAME || 'Outbid';
 
-/* A 100%-off code discounts whatever it is applied to, so offering the
-   promotion field on a large bid lets someone take the top spot for
-   nothing and lock out paying customers. Codes are a launch incentive for
-   cheap spots, so the field is only offered at or below this amount. */
-const PROMO_MAX_BID_CENTS = Number(process.env.PROMO_MAX_BID_CENTS) || 2500;
+/* Launch codes take a fixed amount off rather than a percentage, which is
+   self-limiting: $5 off makes a $5 listing free and barely dents a large
+   bid, so a code can never buy the top spot. The cap below is a belt-and
+   -braces guard for percentage-based codes; unlimited by default. */
+const PROMO_AMOUNT_OFF_CENTS = Number(process.env.PROMO_AMOUNT_OFF_CENTS) || 500;
+const PROMO_MAX_BID_CENTS = Number(process.env.PROMO_MAX_BID_CENTS) || Infinity;
 const SECRET_KEY     = process.env.STRIPE_SECRET_KEY || '';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
@@ -191,11 +192,14 @@ export async function ensureWebhookEndpoint(apiOrigin){
    A coupon holds the discount; a promotion code is the string customers
    type. Redemption limits are enforced by Stripe, which is the only place
    that can count them correctly. */
-export async function ensurePromotionCode({ code, percentOff = 100, maxRedemptions = 100 }){
+export async function ensurePromotionCode({
+  code, amountOffCents = PROMO_AMOUNT_OFF_CENTS, maxRedemptions = 100
+}){
   if (!stripeEnabled) return { status: 'skipped', reason: 'no stripe key' };
 
   const listed = await fetch(
-    `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`,
+    `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`
+      + `&expand[]=data.promotion.coupon`,
     { headers: { authorization: `Bearer ${SECRET_KEY}` } }
   );
   if (!listed.ok){
@@ -205,18 +209,27 @@ export async function ensurePromotionCode({ code, percentOff = 100, maxRedemptio
 
   const existing = (await listed.json()).data?.[0];
   if (existing){
-    return {
-      status: 'exists', code: existing.code, id: existing.id,
-      max: existing.max_redemptions, redeemed: existing.times_redeemed
-    };
+    const coupon = existing.promotion?.coupon ?? existing.coupon;
+    const matches = typeof coupon === 'object' && coupon?.amount_off === amountOffCents;
+    if (matches){
+      return {
+        status: 'exists', code: existing.code, id: existing.id,
+        max: existing.max_redemptions, redeemed: existing.times_redeemed
+      };
+    }
+    /* The discount on a promotion code cannot be changed, and a code string
+       must be unique among active ones — so retire the old one before
+       creating its replacement. */
+    await stripeRequest(`promotion_codes/${existing.id}`, { active: false });
   }
 
-  // A coupon carries the discount; reuse one named after the code.
+  // A fixed amount off, so the discount can never exceed its own value.
   const coupon = await stripeRequest('coupons', {
-    percent_off: percentOff,
+    amount_off: amountOffCents,
+    currency: 'usd',
     duration: 'once',
-    name: `${code} — ${percentOff}% off`
-  }, { idempotencyKey: `coupon_${code}` });
+    name: `${code} — $${(amountOffCents / 100).toFixed(2)} off`
+  });
 
   /* The coupon is nested under `promotion` — a top-level `coupon` param is
      rejected as unknown by the current API. */
@@ -249,7 +262,8 @@ export async function getPromotionCode(code){
     max: found.max_redemptions,
     redeemed: found.times_redeemed,
     remaining: found.max_redemptions == null ? null : found.max_redemptions - found.times_redeemed,
-    percentOff: percentOffOf(found)
+    percentOff: percentOffOf(found),
+    amountOff: amountOffOf(found)
   };
 }
 
@@ -258,6 +272,12 @@ export async function getPromotionCode(code){
 function percentOffOf(promo){
   const c = promo?.promotion?.coupon ?? promo?.coupon;
   return (typeof c === 'object' ? c?.percent_off : null) ?? null;
+}
+
+function amountOffOf(promo){
+  const c = promo?.promotion?.coupon ?? promo?.coupon;
+  const off = typeof c === 'object' ? c?.amount_off : null;
+  return off == null ? null : off / 100;
 }
 
 export async function listPromotionCodes(){
@@ -271,6 +291,7 @@ export async function listPromotionCodes(){
     code: p.code,
     active: p.active,
     percentOff: percentOffOf(p),
+    amountOff: amountOffOf(p),
     max: p.max_redemptions,
     redeemed: p.times_redeemed,
     remaining: p.max_redemptions == null ? null : p.max_redemptions - p.times_redeemed

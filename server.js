@@ -337,8 +337,8 @@ async function registerLaunchPromo(){
   const code = process.env.LAUNCH_PROMO_CODE || 'HACKATHON';
   const max = Number(process.env.LAUNCH_PROMO_MAX) || 100;
   try {
-    const r = await ensurePromotionCode({ code, percentOff: 100, maxRedemptions: max });
-    if (r.status === 'created') console.log(`promo: created ${r.code} — ${r.max} free listings`);
+    const r = await ensurePromotionCode({ code, maxRedemptions: max });
+    if (r.status === 'created') console.log(`promo: created ${r.code} — ${r.max} redemptions`);
     else if (r.status === 'exists') console.log(`promo: ${r.code} exists — ${r.redeemed}/${r.max} used`);
   } catch (err){
     console.error(`promo: setup failed — ${err.message}`);
