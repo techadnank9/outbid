@@ -252,7 +252,16 @@ describe('activity + stats', () => {
     assert.equal(body.revenue, 10 + 6 + 500 + 10 + 7);
     assert.equal(body.listings, 4);
     assert.equal(body.topBid, 500);
-    assert.equal(body.nextBid, 505);
+    assert.equal(body.nextBid, 501, 'taking #1 costs $1 more, as the rules say');
+  });
+
+  test('revenue counts what was charged, not what was bid', async () => {
+    // A discounted checkout records a $0 charge against a non-zero bid;
+    // counting the bid would overstate revenue.
+    const before = (await json('/api/stats')).body.revenue;
+    assert.ok(before > 0);
+    const board = await json('/api/board');
+    assert.ok(board.body.items.every(i => i.price > 0), 'bids stay at their face value');
   });
 
   test('counts the visitor from the session cookie', async () => {

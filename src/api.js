@@ -192,7 +192,9 @@ export const routes = {
       revenue: store.revenueCents() / 100,
       launchedAt: store.launchedAt,
       topBid: top / 100,
-      nextBid: top ? top / 100 + 5 : MIN_BID_CENTS / 100,
+      // The rules say a rank costs $1 more than the listing holding it, so
+      // the headline price must agree rather than quoting a $5 step.
+      nextBid: top ? top / 100 + 1 : MIN_BID_CENTS / 100,
       minBid: MIN_BID_CENTS / 100,
       listings: store.boardCount(),
       payments: stripeEnabled ? 'stripe' : 'dev'
@@ -295,6 +297,18 @@ export const routes = {
       percentOff: pct,
       maxRedemptions: Math.floor(Number(max))
     });
+  },
+
+  /* Remove a listing — a test row, or one that breaks the rules. */
+  'POST /api/admin/listing/delete': (ctx) => {
+    requireAdmin(ctx);
+    const target = String(ctx.body?.target || '').trim().toLowerCase();
+    const listing = store.findListing(target);
+    if (!listing) throw new HttpError(404, 'No listing with that target.');
+    store.deleteListing(listing.id);
+    invalidate();
+    broadcast('board', { reason: 'removed', target });
+    return { removed: target };
   },
 
   /* Correct a mis-classified listing. */

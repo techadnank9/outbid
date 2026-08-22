@@ -188,6 +188,14 @@ export function categoryCounts(){
   return new Map(rows.map(r => [r.category, { count: r.n, topCents: r.top_cents }]));
 }
 
+/* Removes a listing and everything hanging off it. Bids cascade, so the
+   revenue figure drops accordingly — which is correct for a test row, and
+   is why this is admin-only. */
+export function deleteListing(listingId){
+  const info = db.prepare(`DELETE FROM listings WHERE id = ?`).run(listingId);
+  return info.changes > 0;
+}
+
 export function setCategory(listingId, category){
   db.prepare(`UPDATE listings SET category = ? WHERE id = ?`).run(category, listingId);
   return getListing(listingId);
@@ -473,7 +481,13 @@ export function visitorStats(onlineWindowMs = 120_000){
   return { total, online };
 }
 
+/* What was actually charged, not what was bid. A promo listing has a bid of
+   $5 but was paid at $0, and counting the bid would overstate revenue.
+   amount_paid_cents is null for bids taken before it was recorded, so fall
+   back to the bid amount for those. */
 export function revenueCents(){
-  return db.prepare(`SELECT COALESCE(SUM(amount_cents),0) AS n FROM bids WHERE status='paid'`)
-    .get().n;
+  return db.prepare(`
+    SELECT COALESCE(SUM(COALESCE(amount_paid_cents, amount_cents)), 0) AS n
+    FROM bids WHERE status = 'paid'
+  `).get().n;
 }
