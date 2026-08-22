@@ -117,8 +117,30 @@ function visitorFrom(req, res){
   return id;
 }
 
+/* Mirrors build.js so the Node server and the static build produce the
+   same markup — one source of truth for the header and footer. */
+async function assemblePage(file){
+  const [html, head, header, footer] = await Promise.all([
+    readFile(file, 'utf8'),
+    readFile(join(PUBLIC_DIR, '_head.html'), 'utf8').catch(() => ''),
+    readFile(join(PUBLIC_DIR, '_header.html'), 'utf8').catch(() => ''),
+    readFile(join(PUBLIC_DIR, '_footer.html'), 'utf8').catch(() => '')
+  ]);
+  return html
+    .replace('<!--HEAD-->', head)
+    .replace('<!--HEADER-->', header)
+    .replace('<!--FOOTER-->', footer);
+}
+
 async function serveStatic(req, res, pathname){
-  const rel = normalize(pathname === '/' ? '/index.html' : pathname).replace(/^(\.\.[/\\])+/, '');
+  let rel = normalize(pathname === '/' ? '/index.html' : pathname).replace(/^(\.\.[/\\])+/, '');
+
+  // Partials are build inputs, not pages.
+  if (/(^|\/)_/.test(rel)) return send(res, 404, { error: 'Not found' });
+
+  // Clean URLs: /rules serves rules.html.
+  if (!extname(rel)) rel += '.html';
+
   const file = join(PUBLIC_DIR, rel);
 
   if (!file.startsWith(PUBLIC_DIR)){
@@ -140,9 +162,10 @@ async function serveStatic(req, res, pathname){
       return res.end();
     }
 
-    // HTML gets the analytics config templated in; other assets stream as-is.
+    // HTML gets the shared chrome and analytics config templated in;
+    // other assets stream as-is.
     const body = isHtml
-      ? Buffer.from(renderHtml(await readFile(file, 'utf8')), 'utf8')
+      ? Buffer.from(renderHtml(await assemblePage(file)), 'utf8')
       : await readFile(file);
 
     res.writeHead(200, {

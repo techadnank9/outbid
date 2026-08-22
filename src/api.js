@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as store from './db.js';
 import { parseTarget, fetchMetadata, InputError } from './metadata.js';
+import { CATEGORIES, CATEGORY_BY_SLUG, classify } from './categories.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
@@ -27,6 +28,8 @@ function listingView(row, rank){
     price: row.amount_cents / 100,
     claimPrice: row.amount_cents / 100 + 1,
     clicks: row.clicks,
+    category: row.category || 'other',
+    categoryName: CATEGORY_BY_SLUG.get(row.category)?.name || 'Everything Else',
     since: row.paid_at
   };
 }
@@ -114,17 +117,19 @@ function parseAmount(raw){
 }
 
 /* ── Handlers ─────────────────────────────────────────────────── */
-function buildBoard(page){
-  const total = store.boardCount();
+function buildBoard(page, category = null){
+  const total = store.boardCount(category);
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const offset = (Math.min(page, pages) - 1) * PER_PAGE;
-  const rows = store.boardPage(PER_PAGE, offset);
+  const rows = store.boardPage(PER_PAGE, offset, category);
 
   return {
     page: Math.min(page, pages),
     pages,
     total,
     perPage: PER_PAGE,
+    category,
+    categoryName: category ? (CATEGORY_BY_SLUG.get(category)?.name || null) : null,
     items: rows.map((row, i) => listingView(row, offset + i + 1))
   };
 }
@@ -133,8 +138,26 @@ export const routes = {
 
   'GET /api/board': (ctx) => {
     const page = Math.max(1, Number(ctx.query.get('page')) || 1);
-    return cached(`board:${page}`, () => buildBoard(page));
+    const raw = ctx.query.get('category');
+    // An unknown slug filters to nothing rather than silently showing all.
+    const category = raw ? (CATEGORY_BY_SLUG.has(raw) ? raw : '__none__') : null;
+    return cached(`board:${page}:${category || 'all'}`, () => buildBoard(page, category));
   },
+
+  'GET /api/categories': () => cached('categories', () => {
+    const counts = store.categoryCounts();
+    return {
+      items: CATEGORIES.map(c => {
+        const hit = counts.get(c.slug);
+        return {
+          slug: c.slug,
+          name: c.name,
+          listings: hit?.count || 0,
+          topBid: hit?.topCents ? hit.topCents / 100 : 0
+        };
+      })
+    };
+  }),
 
   'GET /api/trending': () => cached('trending', () => ({
     items: store.trending().map(r => ({
@@ -200,6 +223,20 @@ export const routes = {
     };
   },
 
+  /* Correct a mis-classified listing. */
+  'POST /api/admin/category': (ctx) => {
+    requireAdmin(ctx);
+    const { target, category } = ctx.body || {};
+    if (!CATEGORY_BY_SLUG.has(category)){
+      throw new HttpError(400, `Unknown category. One of: ${CATEGORIES.map(c => c.slug).join(', ')}`);
+    }
+    const listing = store.findListing(String(target || '').toLowerCase());
+    if (!listing) throw new HttpError(404, 'No listing with that target.');
+    store.setCategory(listing.id, category);
+    invalidate();
+    return { target: listing.target, category };
+  },
+
   /* Resolve a URL/@handle into a real listing preview + the rank a bid takes. */
   'POST /api/preview': async (ctx) => {
     if (!rateLimit(`preview:${ctx.ip}`, 20, 60_000)){
@@ -224,6 +261,10 @@ export const routes = {
       title: meta.title,
       description: meta.description,
       icon: meta.iconUrl,
+      category: classify({
+        target: parsed.target, kind: parsed.kind,
+        title: meta.title, description: meta.description
+      }),
       alreadyListed: Boolean(current),
       currentPrice: current / 100,
       minimum: (current ? current + 100 : MIN_BID_CENTS) / 100
@@ -269,7 +310,11 @@ export const routes = {
       url: parsed.url,
       title: meta.title,
       description: meta.description,
-      iconUrl: meta.iconUrl
+      iconUrl: meta.iconUrl,
+      category: classify({
+        target: parsed.target, kind: parsed.kind,
+        title: meta.title, description: meta.description
+      })
     });
 
     const rank = store.rankForAmount(cents, listing.id);

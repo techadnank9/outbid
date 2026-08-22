@@ -33,7 +33,7 @@ describe('analytics injection', () => {
       assert.ok(!html.includes('<!--ANALYTICS-->'), 'placeholder consumed');
       assert.ok(!html.includes('%STATS_HREF%'), 'stats href templated');
       assert.ok(!html.includes('%STATS_TARGET%'), 'stats target templated');
-      assert.ok(html.includes('href="#stats"'), 'falls back to the on-page section');
+      assert.ok(html.includes('href="/about#stats"'), 'falls back to the About page figures');
     });
   });
 
@@ -44,12 +44,24 @@ describe('analytics injection', () => {
       DATAFAST_SHARE_URL: 'https://datafa.st/share/abc?period=last24h'
     }, async (base) => {
       const html = await (await fetch(base + '/')).text();
-      assert.match(html, /script[^>]+src="https:\/\/datafa\.st\/js\/script\.cookieless\.js"/);
+      assert.match(html, /script[^>]+src="https:\/\/datafa\.st\/js\/script\.js"/);
       assert.match(html, /data-website-id="dfid_test123"/);
       assert.match(html, /data-domain="example\.com"/);
       assert.ok(html.includes('https://datafa.st/share/abc?period=last24h'), 'share link used');
       assert.ok(html.includes('target="_blank"'), 'share link opens in a new tab');
       assert.ok(!html.includes('%STATS'), 'no placeholders left');
+    });
+  });
+
+  test('switches to the cookieless tracker on request', async () => {
+    await withServer({
+      DATAFAST_WEBSITE_ID: 'dfid_test123',
+      DATAFAST_DOMAIN: 'example.com',
+      DATAFAST_SCRIPT: 'cookieless'
+    }, async (base) => {
+      const html = await (await fetch(base + '/')).text();
+      assert.match(html, /script\.cookieless\.js/);
+      assert.ok(!/js\/script\.js"/.test(html), 'not both variants');
     });
   });
 

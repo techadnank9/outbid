@@ -11,6 +11,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { renderHtml } from './src/analytics.js';
 
 const ROOT = new URL('.', import.meta.url).pathname;
@@ -31,9 +32,41 @@ if (!API_BASE){
 try { rmSync(OUT, { recursive: true }); } catch {}
 mkdirSync(OUT, { recursive: true });
 
-/* index.html goes through the same templating the server uses. */
-const html = renderHtml(readFileSync(join(SRC, 'index.html'), 'utf8'));
-writeFileSync(join(OUT, 'index.html'), html);
+/* Shared chrome, so the header and footer exist in one place. */
+const partial = (name) => readFileSync(join(SRC, name), 'utf8');
+const HEAD = partial('_head.html');
+const HEADER = partial('_header.html');
+const FOOTER = partial('_footer.html');
+
+/* Asset filenames never change, so a browser that cached styles.css under an
+   old max-age would keep serving it. Stamp each reference with a hash of the
+   file's contents: unchanged files keep their URL and stay cached, changed
+   ones get a new URL and are fetched immediately. */
+const ASSETS = ['styles.css', 'app.js', 'theme.js'];
+const stamp = Object.fromEntries(ASSETS.map(f => [
+  f,
+  createHash('sha1').update(readFileSync(join(SRC, f))).digest('hex').slice(0, 8)
+]));
+
+function version(html){
+  for (const [file, hash] of Object.entries(stamp)){
+    html = html.replaceAll(`/${file}"`, `/${file}?v=${hash}"`);
+  }
+  return html;
+}
+
+function assemble(file){
+  return version(renderHtml(
+    readFileSync(join(SRC, file), 'utf8')
+      .replace('<!--HEAD-->', HEAD)
+      .replace('<!--HEADER-->', HEADER)
+      .replace('<!--FOOTER-->', FOOTER)
+  ));
+}
+
+for (const page of ['index.html', 'rules.html', 'about.html', 'categories.html']){
+  writeFileSync(join(OUT, page), assemble(page));
+}
 
 /* Config is a separate file so index.html stays cacheable and the API origin
    is visible in one obvious place rather than buried in the bundle. */
@@ -42,7 +75,7 @@ writeFileSync(join(OUT, 'config.js'),
   `window.__CONFIG__ = ${JSON.stringify({ apiBase: API_BASE }, null, 2)};\n`
 );
 
-for (const file of ['styles.css', 'app.js']){
+for (const file of ['styles.css', 'app.js', 'theme.js']){
   copyFileSync(join(SRC, file), join(OUT, file));
 }
 

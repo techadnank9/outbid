@@ -33,10 +33,11 @@ export function analyticsTag(){
        + `data-website-id="${attr(WEBSITE_ID)}" data-domain="${attr(DOMAIN)}"></script>`;
 }
 
-/* "see stats" / "Live stats" point at a DataFast public share link when one is
-   configured; otherwise they fall back to the on-page revenue section. */
+/* "see stats" / "Live stats" point at the DataFast public share dashboard
+   when one is configured. The fallback is the About page's live figures —
+   a real stats page, rather than scrolling to a counter on the same page. */
 export function statsHref(){
-  return SHARE_URL ? attr(SHARE_URL) : '#stats';
+  return SHARE_URL ? attr(SHARE_URL) : '/about#stats';
 }
 
 export function statsTargetAttrs(){

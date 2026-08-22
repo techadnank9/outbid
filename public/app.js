@@ -67,7 +67,8 @@ let state = {
   pages: 1,
   total: 0,
   stats: null,
-  bidEdited: false   // stop overwriting the field once the user types in it
+  bidEdited: false,  // stop overwriting the field once the user types in it
+  category: new URLSearchParams(location.search).get('category') || null
 };
 
 /* ── Avatars ──────────────────────────────────────────────────── */
@@ -103,17 +104,25 @@ async function loadBoard(page = state.page){
   host.setAttribute('aria-busy', 'true');
 
   try {
-    const data = await api(`/api/board?page=${page}`);
+    const q = new URLSearchParams({ page });
+    if (state.category) q.set('category', state.category);
+    const data = await api(`/api/board?${q}`);
     state.page = data.page;
     state.pages = data.pages;
     state.total = data.total;
 
+    renderCategoryBanner(data);
+
     if (!data.items.length){
-      host.innerHTML = `
-        <div class="empty">
-          <p class="empty-title">Nobody has claimed a spot yet.</p>
-          <p class="empty-sub">The board is empty. The first bid takes #1.</p>
-        </div>`;
+      host.innerHTML = state.category
+        ? `<div class="empty">
+             <p class="empty-title">Nothing in this category yet.</p>
+             <p class="empty-sub">$5 takes #1 here. <a href="/categories">Browse other categories</a>.</p>
+           </div>`
+        : `<div class="empty">
+             <p class="empty-title">Nobody has claimed a spot yet.</p>
+             <p class="empty-sub">The board is empty. The first bid takes #1.</p>
+           </div>`;
       $('rangeLabel').textContent = '';
       $('pagination').hidden = true;
       return;
@@ -134,6 +143,17 @@ async function loadBoard(page = state.page){
   }
 }
 
+function renderCategoryBanner(data){
+  const el = $('categoryBanner');
+  if (!el) return;
+  if (!state.category){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `
+    <span>Showing <strong>${escapeHtml(data.categoryName || state.category)}</strong>
+      — ${fmtInt(data.total)} ${data.total === 1 ? 'listing' : 'listings'}</span>
+    <a href="/">Show the whole board →</a>`;
+}
+
 function rowHtml(item){
   const top3 = item.rank <= 3;
   const dividers = { 3: 'TOP 3', 10: 'TOP 10', 20: 'TOP 20' };
@@ -150,6 +170,8 @@ function rowHtml(item){
         <div class="row-meta">
           <span>${ago(item.since)}</span>
           <span class="clicks">${fmtInt(item.clicks)} clicks</span>
+          ${item.category && !state.category
+            ? `<span class="row-category">${escapeHtml(item.categoryName)}</span>` : ''}
         </div>
       </div>
       <div class="row-right">
@@ -444,20 +466,6 @@ function connectLive(){
 setInterval(loadStats, 15_000);
 setInterval(loadPanels, 30_000);
 
-/* ── Theme ────────────────────────────────────────────────────── */
-const store = {
-  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
-};
-const savedTheme = store.get('theme');
-if (savedTheme) document.documentElement.dataset.theme = savedTheme;
-else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-
-$('themeToggle').addEventListener('click', () => {
-  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-  store.set('theme', next);
-});
 
 /* ── Boot ─────────────────────────────────────────────────────── */
 (async function boot(){

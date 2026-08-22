@@ -94,6 +94,10 @@ for (const [col, type] of [
 ]){
   if (!bidCols.includes(col)) db.exec(`ALTER TABLE bids ADD COLUMN ${col} ${type}`);
 }
+if (!listingCols.includes('category')){
+  db.exec(`ALTER TABLE listings ADD COLUMN category TEXT NOT NULL DEFAULT 'other'`);
+}
+db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_bids_email ON bids(customer_email)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_bids_pi    ON bids(payment_intent)`);
 
@@ -110,7 +114,8 @@ const BOARD_SELECT = `
     l.id, l.kind, l.target, l.url, l.title, l.description, l.icon_url,
     b.amount_cents,
     b.paid_at,
-    l.clicks_total AS clicks
+    l.clicks_total AS clicks,
+    l.category
   FROM listings l
   JOIN (
     SELECT listing_id,
@@ -122,18 +127,45 @@ const BOARD_SELECT = `
   ) b ON b.listing_id = l.id
 `;
 
-export function boardPage(limit, offset){
+export function boardPage(limit, offset, category = null){
+  const filter = category ? `WHERE l.category = ?` : '';
+  const args = category ? [category, limit, offset] : [limit, offset];
   return db.prepare(`
     ${BOARD_SELECT}
+    ${filter}
     ORDER BY b.amount_cents DESC, b.paid_at ASC, l.id ASC
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  `).all(...args);
 }
 
-export function boardCount(){
+export function boardCount(category = null){
+  if (!category){
+    return db.prepare(`
+      SELECT COUNT(DISTINCT listing_id) AS n FROM bids WHERE status = 'paid'
+    `).get().n;
+  }
   return db.prepare(`
-    SELECT COUNT(DISTINCT listing_id) AS n FROM bids WHERE status = 'paid'
-  `).get().n;
+    SELECT COUNT(DISTINCT b.listing_id) AS n
+    FROM bids b JOIN listings l ON l.id = b.listing_id
+    WHERE b.status = 'paid' AND l.category = ?
+  `).get(category).n;
+}
+
+/* Only categories that actually have paid listings are worth showing a
+   count for; the page still lists the empty ones, at zero. */
+export function categoryCounts(){
+  const rows = db.prepare(`
+    SELECT l.category, COUNT(DISTINCT b.listing_id) AS n,
+           MAX(b.amount_cents) AS top_cents
+    FROM listings l JOIN bids b ON b.listing_id = l.id AND b.status = 'paid'
+    GROUP BY l.category
+  `).all();
+  return new Map(rows.map(r => [r.category, { count: r.n, topCents: r.top_cents }]));
+}
+
+export function setCategory(listingId, category){
+  db.prepare(`UPDATE listings SET category = ? WHERE id = ?`).run(category, listingId);
+  return getListing(listingId);
 }
 
 export function topAmount(){
@@ -190,10 +222,12 @@ export function getListing(id){
   return db.prepare(`SELECT * FROM listings WHERE id = ?`).get(id);
 }
 
-export function upsertListing({ kind, target, url, title, description, iconUrl }){
+export function upsertListing({ kind, target, url, title, description, iconUrl, category }){
   const existing = findListing(target);
   if (existing){
-    // Refresh metadata — the product page may have changed since the last bid.
+    /* Refresh metadata — the product page may have changed since the last
+       bid. The category is left alone: an owner may have had it corrected
+       by hand, and a re-bid should not silently undo that. */
     db.prepare(`
       UPDATE listings SET url = ?, title = ?, description = ?, icon_url = ?
       WHERE id = ?
@@ -201,9 +235,9 @@ export function upsertListing({ kind, target, url, title, description, iconUrl }
     return getListing(existing.id);
   }
   const info = db.prepare(`
-    INSERT INTO listings (kind, target, url, title, description, icon_url, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(kind, target, url, title, description, iconUrl ?? null, Date.now());
+    INSERT INTO listings (kind, target, url, title, description, icon_url, category, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(kind, target, url, title, description, iconUrl ?? null, category || 'other', Date.now());
   return getListing(Number(info.lastInsertRowid));
 }
 

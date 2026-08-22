@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--HEAD-->
+<title>About · Outbid</title>
+<meta name="description" content="What Outbid is, why it exists, and who built it." />
+</head>
+<body>
+<!--HEADER-->
+
+<main class="doc">
+  <h1 class="doc-title">About</h1>
+  <p class="doc-lead">
+    Outbid is a leaderboard you buy your way onto. No ads to sell, no algorithm to game,
+    no application to be accepted. Whoever pays the most sits at #1 until somebody pays more.
+  </p>
+
+  <section class="doc-section">
+    <h2>Why it works</h2>
+    <p>
+      Most places that promise attention hide how you get it. Rankings shift for reasons nobody
+      explains, and "featured" usually means someone paid without saying so.
+    </p>
+    <p>
+      This is the same trade, made obvious. The price of every rank is printed next to it. You can
+      see exactly what the spot above you costs before you spend anything, and everyone else can see
+      what you paid for yours.
+    </p>
+  </section>
+
+  <section class="doc-section">
+    <h2>What you actually get</h2>
+    <ul class="doc-list">
+      <li>A row on the board with your name, description and icon, pulled from your own page.</li>
+      <li>A direct link to your site, and a running count of the clicks it has sent you.</li>
+      <li>A place in a <a href="/categories">category ranking</a>, where a smaller bid can still
+          lead something specific.</li>
+      <li>A spot in the trending panel if people are actually clicking you.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="stats">
+    <h2>The board so far</h2>
+    <div class="stat-grid">
+      <div class="stat"><span class="stat-value" id="statVisitors">—</span><span class="stat-label">visitors</span></div>
+      <div class="stat"><span class="stat-value" id="statListings">—</span><span class="stat-label">listings</span></div>
+      <div class="stat"><span class="stat-value" id="statTop">—</span><span class="stat-label">highest bid</span></div>
+      <div class="stat"><span class="stat-value" id="statRevenue">—</span><span class="stat-label">total paid</span></div>
+    </div>
+    <p class="doc-note" id="statAge">Live figures, read from the board.</p>
+  </section>
+
+  <section class="doc-section">
+    <h2>Who built it</h2>
+    <p>
+      Built by <a href="https://x.com/iamadnank9" target="_blank" rel="noopener">@iamadnank9</a>.
+      It is a small, deliberately simple thing: one server, one database, no tracking beyond a
+      privacy-friendly visitor count and the clicks your own listing earns.
+    </p>
+    <p>
+      Questions, corrections, or a listing that needs removing — message me on X. It is the fastest
+      way to reach a human, because it is the only one.
+    </p>
+  </section>
+</main>
+
+<!--FOOTER-->
+<script src="/config.js"></script>
+<script>
+/* Real numbers from the API — nothing on this page is written by hand. */
+(function(){
+  var base = (window.__CONFIG__ && window.__CONFIG__.apiBase) || '';
+  var money = function(n){ return '$' + Number(n).toLocaleString('en-US'); };
+
+  fetch(base + '/api/stats').then(function(r){ return r.json(); }).then(function(s){
+    document.getElementById('statVisitors').textContent = Number(s.visitors).toLocaleString('en-US');
+    document.getElementById('statListings').textContent = Number(s.listings).toLocaleString('en-US');
+    document.getElementById('statTop').textContent = s.topBid ? money(s.topBid) : '—';
+    document.getElementById('statRevenue').textContent = money(Math.round(s.revenue));
+
+    var hours = Math.floor((Date.now() - s.launchedAt) / 3600000);
+    var age = hours < 1 ? 'less than an hour'
+            : hours < 48 ? hours + (hours === 1 ? ' hour' : ' hours')
+            : Math.floor(hours / 24) + ' days';
+    document.getElementById('statAge').textContent = 'Live figures, ' + age + ' since launch.';
+  }).catch(function(){
+    document.getElementById('statAge').textContent = 'Live figures are unavailable right now.';
+  });
+})();
+</script>
+</body>
+</html>

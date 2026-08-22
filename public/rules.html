@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--HEAD-->
+<title>Rules · Outbid</title>
+<meta name="description" content="How ranking works on Outbid, what you can list, and what happens after you pay." />
+</head>
+<body>
+<!--HEADER-->
+
+<main class="doc">
+  <h1 class="doc-title">Rules</h1>
+  <p class="doc-lead">
+    Outbid is a public leaderboard. No ads, no revenue share, no algorithm.
+    Your rank is your bid — nothing else decides it.
+  </p>
+
+  <section class="doc-section">
+    <h2>How ranking works</h2>
+    <ul class="doc-list">
+      <li>Bids are whole US dollars. <strong>$5 minimum</strong>, <strong>$100,000 maximum</strong>.</li>
+      <li>Your listing sits at the position its bid earns. Bid less than #1 and you still join the
+          board, just further down.</li>
+      <li><strong>Ties go to whoever got there first.</strong> Matching a bid does not take the spot —
+          you have to beat it. That protects listings already on the board from being displaced by
+          someone paying the same amount.</li>
+      <li>To claim a specific rank, bid at least $1 more than the listing currently holding it.
+          Every row shows exactly what that costs.</li>
+      <li>Ranks are live. Someone can outbid you minutes after you pay, and you keep your listing
+          at whatever position your bid still earns.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section">
+    <h2>Raising an existing listing</h2>
+    <ul class="doc-list">
+      <li>Enter the same website or @handle again and bid higher. It raises your existing listing
+          rather than creating a second one.</li>
+      <li>The new bid must be above your current one. <strong>You pay the new bid in full</strong>,
+          not the difference — each bid is its own transaction.</li>
+      <li>One listing per domain. <code>example.com/pricing</code>, <code>www.example.com</code> and
+          <code>example.com</code> are all the same listing, so nobody can occupy several rows with
+          different paths of one site.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section">
+    <h2>What you can list</h2>
+    <ul class="doc-list">
+      <li>A product or company website, or an X @handle.</li>
+      <li>Links must be public <code>http</code> or <code>https</code> addresses. Private, internal
+          and local network addresses are rejected.</li>
+      <li>Query strings are stripped. Affiliate, referral and tracking parameters will not survive,
+          so there is no point adding them.</li>
+      <li>No chat or invite links — Telegram, WhatsApp, Discord and the like. This is a board for
+          products and profiles, not group invites.</li>
+      <li>No adult or NSFW content.</li>
+      <li>Nothing illegal, and nothing that exists to deceive or defraud the people who click it.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section">
+    <h2>Categories</h2>
+    <p>
+      Every listing is filed into a <a href="/categories">category</a>, each with its own ranking, so
+      a smaller budget can still lead somewhere specific.
+    </p>
+    <p>
+      Categories are assigned automatically from the title and description found on your page. It is
+      keyword matching, not judgement, so it sometimes gets it wrong. If yours is filed badly,
+      message <a href="https://x.com/iamadnank9" target="_blank" rel="noopener">@iamadnank9</a> and it
+      will be moved. Moving a listing never changes its rank or its bid.
+    </p>
+  </section>
+
+  <section class="doc-section">
+    <h2>What we take from your page</h2>
+    <p>
+      When you enter a URL, the page is fetched once and its title, description and icon are read
+      from the standard OpenGraph and <code>&lt;title&gt;</code> tags — the same information a link
+      preview would show. Nothing else is collected, and the page is not crawled beyond that.
+    </p>
+    <p>
+      If the exact URL cannot be reached, the site root is tried instead. A site that is unreachable
+      is still listed, just without the description.
+    </p>
+  </section>
+
+  <section class="doc-section">
+    <h2>After you pay</h2>
+    <ul class="doc-list">
+      <li><strong>A completed payment is what claims the rank.</strong> Starting checkout reserves
+          nothing.</li>
+      <li>Payment is handled by Stripe. Card details go to Stripe and are never seen or stored here —
+          only your email, the amount, and the card's brand and last four digits, so a payment can be
+          matched to a receipt.</li>
+      <li>Your listing goes public immediately and links straight to the URL or profile you gave.</li>
+      <li>Clicks are counted, and the total is shown on your row. Clicks in the last hour feed the
+          trending panel.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section">
+    <h2>Refunds and removals</h2>
+    <ul class="doc-list">
+      <li>Bids are not refundable once a listing is live. You are buying a position on a board that
+          anyone can outbid, and that risk is the whole product.</li>
+      <li>A listing that breaks these rules is removed without a refund.</li>
+      <li>Want your listing taken down, or the data held about your payment deleted? Message
+          <a href="https://x.com/iamadnank9" target="_blank" rel="noopener">@iamadnank9</a>.</li>
+      <li>If something is charged twice, or a payment goes through and your listing does not appear,
+          that is a bug on our side — get in touch and it will be fixed or refunded.</li>
+    </ul>
+  </section>
+
+  <p class="doc-note">
+    These rules can change as the board grows. Anything already paid for keeps the terms it was
+    bought under.
+  </p>
+</main>
+
+<!--FOOTER-->
+</body>
+</html>

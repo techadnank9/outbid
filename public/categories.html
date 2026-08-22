@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--HEAD-->
+<title>Categories · Outbid</title>
+<meta name="description" content="Every category has its own ranking. Pick one to see who leads it." />
+</head>
+<body>
+<!--HEADER-->
+
+<main class="doc">
+  <h1 class="doc-title">Categories</h1>
+  <p class="doc-lead">
+    Every category has its own ranking. Leading one costs far less than leading the whole board —
+    pick yours and see what the top spot is going for.
+  </p>
+
+  <div class="cat-grid" id="catGrid">
+    <p class="doc-note">Loading categories…</p>
+  </div>
+</main>
+
+<!--FOOTER-->
+<script src="/config.js"></script>
+<script>
+(function(){
+  var base = (window.__CONFIG__ && window.__CONFIG__.apiBase) || '';
+  var grid = document.getElementById('catGrid');
+  var esc = function(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); };
+
+  fetch(base + '/api/categories').then(function(r){ return r.json(); }).then(function(d){
+    grid.innerHTML = d.items.map(function(c){
+      var taken = c.listings > 0;
+      return '<a class="cat-card' + (taken ? '' : ' empty') + '" href="/?category=' + esc(c.slug) + '">'
+        + '<span class="cat-name">' + esc(c.name) + '</span>'
+        + '<span class="cat-meta">'
+        + (taken
+            ? c.listings + (c.listings === 1 ? ' listing' : ' listings')
+              + ' · #1 at $' + Number(c.topBid).toLocaleString('en-US')
+            : 'unclaimed — $5 takes #1')
+        + '</span></a>';
+    }).join('');
+  }).catch(function(){
+    grid.innerHTML = '<p class="doc-note">Could not load categories right now.</p>';
+  });
+})();
+</script>
+</body>
+</html>
