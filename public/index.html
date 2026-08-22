@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <!--HEAD-->
-<title>Outbid</title>
-<meta name="description" content="Outbid — pay to claim your rank. The highest bid sits at #1." />
+<title>%BRAND%</title>
+<meta name="description" content="%BRAND% — pay to claim your rank. The highest bid sits at #1." />
 </head>
 <body>
 
@@ -43,13 +43,13 @@
         </span>
         <input id="urlInput" type="text" placeholder="Your product URL or @handle" aria-label="Your product URL or @handle" />
       </div>
-      <div class="field field-select">
-        <select id="categorySelect" aria-label="Category">
-          <option value="">Choose a category</option>
-        </select>
-        <span class="select-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-        </span>
+      <div class="cat-picker" id="catPicker">
+        <button type="button" class="cat-picker-btn" id="catPickerBtn"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="cat-picker-label" id="catPickerLabel">Choose a category</span>
+          <svg class="cat-picker-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="cat-picker-menu" id="catPickerMenu" role="listbox" hidden></div>
       </div>
       <button class="btn-outbid" id="outbidBtn" type="submit" disabled>Outbid</button>
     </form>

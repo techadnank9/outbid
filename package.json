@@ -12,6 +12,8 @@
     "dev": "node --watch server.js",
     "test": "node --test test/*.test.js",
     "build": "node build.js",
-    "deploy": "node build.js && firebase deploy --only hosting"
+    "deploy": "./deploy.sh outbid",
+    "deploy:dethrone": "./deploy.sh dethrone",
+    "deploy:all": "./deploy.sh outbid && ./deploy.sh dethrone"
   }
 }

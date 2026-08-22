@@ -15,6 +15,18 @@ const PORT = Number(process.env.PORT) || 4321;
    loopback bind fails their health check. Default to loopback only locally. */
 const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
+/* Two front-ends share this API, so a fixed PUBLIC_ORIGIN would send a
+   customer back to the wrong site after paying. Use the origin the request
+   actually came from — but only if it is on the allow-list, so the redirect
+   target can never be attacker-controlled. */
+function checkoutOrigin(req){
+  const candidate = (req.headers.origin
+    || (req.headers.referer ? new URL(req.headers.referer).origin : '') || '')
+    .replace(/\/$/, '');
+  if (candidate && ALLOWED_ORIGINS.includes(candidate)) return candidate;
+  return process.env.PUBLIC_ORIGIN || `http://${req.headers.host}`;
+}
+
 /* Only believe X-Forwarded-For when we know a proxy set it — otherwise a
    client could spoof its IP and walk straight past the rate limiter. */
 const TRUST_PROXY = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
@@ -245,7 +257,7 @@ const server = createServer(async (req, res) => {
     if (handler){
       const ctx = {
         query: url.searchParams,
-        origin: process.env.PUBLIC_ORIGIN || `http://${req.headers.host}`,
+        origin: checkoutOrigin(req),
         ip: (TRUST_PROXY && req.headers['x-forwarded-for']?.split(',')[0].trim())
             || req.socket.remoteAddress,
         visitorId: visitorFrom(req, res),

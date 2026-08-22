@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 const WEBSITE_ID = process.env.DATAFAST_WEBSITE_ID || '';   // dfid_...
 const DOMAIN     = process.env.DATAFAST_DOMAIN || '';       // your-domain.com
 const SHARE_URL  = process.env.DATAFAST_SHARE_URL || '';    // public dashboard
+const BRAND      = process.env.BRAND_NAME || 'Outbid';      // per-domain name
 
 /* DataFast ships two trackers: script.js (the default from the dashboard)
    and script.cookieless.js, which sets no cookies and so needs no consent
@@ -47,12 +48,13 @@ export function statsTargetAttrs(){
 /* Injected config participates in the ETag — otherwise a config change would
    keep serving the previously cached HTML. */
 export const analyticsFingerprint = createHash('sha1')
-  .update(`${WEBSITE_ID}|${DOMAIN}|${SHARE_URL}|${SCRIPT}`)
+  .update(`${WEBSITE_ID}|${DOMAIN}|${SHARE_URL}|${SCRIPT}|${BRAND}`)
   .digest('hex')
   .slice(0, 8);
 
 export function renderHtml(html){
   return html
+    .replaceAll('%BRAND%', attr(BRAND))
     .replaceAll('<!--ANALYTICS-->', analyticsTag())
     .replaceAll('%STATS_HREF%', statsHref())
     .replaceAll('%STATS_TARGET%', statsTargetAttrs());

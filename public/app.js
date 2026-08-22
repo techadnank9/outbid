@@ -171,7 +171,8 @@ function rowHtml(item){
           <span>${ago(item.since)}</span>
           <span class="clicks">${fmtInt(item.clicks)} clicks</span>
           ${item.category && !state.category
-            ? `<span class="row-category">${escapeHtml(item.categoryName)}</span>` : ''}
+            ? `<span class="row-category">${categoryIcon(item.category)}${escapeHtml(item.categoryName)}</span>`
+            : ''}
         </div>
       </div>
       <div class="row-right">
@@ -248,15 +249,64 @@ async function loadCategories(){
     categories = (await api('/api/categories')).items;
   } catch { return; }
 
-  const select = $('categorySelect');
-  if (select){
-    const keep = select.value;
-    select.innerHTML = '<option value="">Choose a category</option>'
-      + categories.map(c => `<option value="${c.slug}">${escapeHtml(c.name)}</option>`).join('');
-    select.value = keep;
-  }
+  renderPickerMenu();
   renderTabs();
 }
+
+/* ── Category picker (custom, so each option can carry its icon) ── */
+let chosenCategory = '';
+
+function renderPickerMenu(){
+  const menu = $('catPickerMenu');
+  if (!menu) return;
+  menu.innerHTML = categories.map(c => `
+    <button type="button" role="option" class="cat-option${chosenCategory === c.slug ? ' selected' : ''}"
+            data-slug="${c.slug}" aria-selected="${chosenCategory === c.slug}">
+      ${categoryIcon(c.slug)}<span>${escapeHtml(c.name)}</span>
+    </button>`).join('');
+}
+
+function setChosenCategory(slug, byUser){
+  chosenCategory = slug || '';
+  const label = $('catPickerLabel');
+  const found = categories.find(c => c.slug === chosenCategory);
+  if (label){
+    label.innerHTML = found
+      ? `${categoryIcon(found.slug)}<span>${escapeHtml(found.name)}</span>`
+      : 'Choose a category';
+    label.classList.toggle('placeholder', !found);
+  }
+  if (byUser) $('catPicker')?.setAttribute('data-touched', '1');
+  renderPickerMenu();
+}
+
+function openPicker(open){
+  const menu = $('catPickerMenu');
+  const btn = $('catPickerBtn');
+  if (!menu || !btn) return;
+  menu.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+}
+
+$('catPickerBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  openPicker($('catPickerMenu').hidden);
+});
+
+$('catPickerMenu')?.addEventListener('click', (e) => {
+  const opt = e.target.closest('.cat-option');
+  if (!opt) return;
+  setChosenCategory(opt.dataset.slug, true);
+  openPicker(false);
+});
+
+// Clicking away or pressing Escape closes it, like a native select.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#catPicker')) openPicker(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') openPicker(false);
+});
 
 /* Busiest categories first, so the tabs lead with where the action is
    rather than with an arbitrary alphabetical order. */
@@ -268,10 +318,12 @@ function renderTabs(){
     b.listings - a.listings || a.name.localeCompare(b.name));
 
   tabs.innerHTML =
-    `<button class="cat-tab${!state.category ? ' active' : ''}" data-slug="">All</button>`
+    `<button class="cat-tab${!state.category ? ' active' : ''}" data-slug="">
+       ${categoryIcon('__all')}All
+     </button>`
     + ordered.map(c => `
         <button class="cat-tab${state.category === c.slug ? ' active' : ''}" data-slug="${c.slug}">
-          ${escapeHtml(c.name)}${c.listings ? `<span class="cat-tab-count">${c.listings}</span>` : ''}
+          ${categoryIcon(c.slug)}${escapeHtml(c.name)}${c.listings ? `<span class="cat-tab-count">${c.listings}</span>` : ''}
         </button>`).join('');
 
   const active = tabs.querySelector('.cat-tab.active');
@@ -374,8 +426,7 @@ async function runPreview(){
     });
     if (seq !== previewSeq) return;   // a newer lookup already won
 
-    const select = $('categorySelect');
-    if (select && !select.dataset.touched && data.category) select.value = data.category;
+    if (!$('catPicker')?.dataset.touched && data.category) setChosenCategory(data.category, false);
 
     const warn = data.alreadyListed && !data.beatsCurrent;
     box.className = 'preview' + (warn ? ' warn' : '');
@@ -396,11 +447,6 @@ async function runPreview(){
     box.textContent = err.message;
   }
 }
-
-$('categorySelect')?.addEventListener('change', (e) => {
-  // Once chosen by hand, a later lookup must not silently change it.
-  e.target.dataset.touched = '1';
-});
 
 $('urlInput').addEventListener('input', (e) => {
   $('outbidBtn').disabled = e.target.value.trim().length === 0;
@@ -425,7 +471,7 @@ $('claimForm').addEventListener('submit', async (e) => {
       body: JSON.stringify({
         target,
         amount: currentBid(),
-        category: $('categorySelect')?.value || undefined
+        category: chosenCategory || undefined
       })
     });
 
@@ -440,8 +486,8 @@ $('claimForm').addEventListener('submit', async (e) => {
     $('urlInput').value = '';
     cancelPreview();
     state.bidEdited = false;
-    const sel = $('categorySelect');
-    if (sel){ sel.value = ''; delete sel.dataset.touched; }
+    setChosenCategory('', false);
+    $('catPicker')?.removeAttribute('data-touched');
     await refreshAll();
   } catch (err){
     toast(err.message, true);

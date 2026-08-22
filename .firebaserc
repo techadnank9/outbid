@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "outbidloll"
+    "default": "outbidloll",
+    "outbid": "outbidloll",
+    "dethrone": "dethronelol"
   }
 }

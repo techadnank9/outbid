@@ -11,6 +11,7 @@ import { join } from 'node:path';
 const PORT = 4377;
 const BASE = `http://127.0.0.1:${PORT}`;
 const FRONTEND = 'https://outbidloll.web.app';
+const SECOND_ORIGIN = 'https://outbidloll.firebaseapp.com';
 const dir = mkdtempSync(join(tmpdir(), 'outbid-split-'));
 let child;
 
@@ -19,7 +20,7 @@ before(async () => {
     env: {
       ...process.env, PORT: String(PORT), DB_PATH: join(dir, 's.db'),
       NODE_ENV: 'test', STRIPE_SECRET_KEY: '',
-      ALLOWED_ORIGINS: `${FRONTEND},https://outbidloll.firebaseapp.com`
+      ALLOWED_ORIGINS: `${FRONTEND},${SECOND_ORIGIN}`
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -97,5 +98,24 @@ describe('visitor identity without cookies', () => {
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.ok(body.visitors >= 2, 'falls back to a generated id, table intact');
+  });
+});
+
+describe('multi-domain checkout redirect', () => {
+  /* Two front-ends share one API. The Stripe redirect must return the
+     customer to the site they actually paid on. */
+  test('an allowed origin is echoed back for CORS on both domains', async () => {
+    for (const origin of [FRONTEND, SECOND_ORIGIN]){
+      const res = await fetch(BASE + '/api/board', { headers: { origin } });
+      assert.equal(res.headers.get('access-control-allow-origin'), origin);
+    }
+  });
+
+  test('an attacker-supplied origin is never trusted', async () => {
+    const res = await fetch(BASE + '/api/board', {
+      headers: { origin: 'https://attacker.example' }
+    });
+    assert.equal(res.headers.get('access-control-allow-origin'), null,
+      'an unlisted origin must not become a redirect target');
   });
 });
