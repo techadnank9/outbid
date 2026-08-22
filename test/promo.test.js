@@ -84,3 +84,15 @@ describe('promotion codes are Stripe-side only', () => {
     assert.equal(res.status, 400);
   });
 });
+
+describe('promo codes cannot buy the top spot', () => {
+  test('the promotion field is offered only on small bids', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    const { promoAllowedFor } = await import('../src/payments.js?cap');
+    assert.equal(promoAllowedFor(500), true, '$5 may use a code');
+    assert.equal(promoAllowedFor(2500), true, '$25 is the ceiling');
+    assert.equal(promoAllowedFor(2501), false, 'just above is refused');
+    assert.equal(promoAllowedFor(100_000_00), false,
+      'a 100% code must never discount a six-figure bid to nothing');
+  });
+});

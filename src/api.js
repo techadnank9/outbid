@@ -5,7 +5,8 @@ import { CATEGORIES, CATEGORY_BY_SLUG, classify } from './categories.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
-  extractPaymentDetails, ensurePromotionCode, listPromotionCodes, getPromotionCode
+  extractPaymentDetails, ensurePromotionCode, listPromotionCodes, getPromotionCode,
+  promoAllowedFor
 } from './payments.js';
 
 export const MIN_BID_CENTS = 500;          // $5 floor
@@ -434,7 +435,10 @@ export const routes = {
       status: 'pending', sessionId: session.id
     });
 
-    return { status: 'checkout', checkoutUrl: session.url, rank, target: listing.target };
+    return {
+      status: 'checkout', checkoutUrl: session.url, rank,
+      target: listing.target, promoOffered: promoAllowedFor(cents)
+    };
   },
 
   /* Stripe redirects here on success. Confirming from the session (as well as

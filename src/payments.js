@@ -8,6 +8,12 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const BRAND          = process.env.BRAND_NAME || 'Outbid';
+
+/* A 100%-off code discounts whatever it is applied to, so offering the
+   promotion field on a large bid lets someone take the top spot for
+   nothing and lock out paying customers. Codes are a launch incentive for
+   cheap spots, so the field is only offered at or below this amount. */
+const PROMO_MAX_BID_CENTS = Number(process.env.PROMO_MAX_BID_CENTS) || 2500;
 const SECRET_KEY     = process.env.STRIPE_SECRET_KEY || '';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
@@ -54,6 +60,10 @@ async function stripeRequest(path, body, { idempotencyKey } = {}){
 }
 
 /* ── Checkout ─────────────────────────────────────────────────── */
+export function promoAllowedFor(amountCents){
+  return amountCents <= PROMO_MAX_BID_CENTS;
+}
+
 export async function createCheckoutSession({ listing, amountCents, rank, origin, bidRef }){
   const session = await stripeRequest('checkout/sessions', {
     mode: 'payment',
@@ -65,8 +75,9 @@ export async function createCheckoutSession({ listing, amountCents, rank, origin
     customer_creation: 'always',
     billing_address_collection: 'auto',
     // Stripe renders its own promotion-code field and enforces the limits,
-    // so discounts never have to be trusted from our side.
-    allow_promotion_codes: true,
+    // so discounts never have to be trusted from our side. Offered only on
+    // small bids — see PROMO_MAX_BID_CENTS.
+    allow_promotion_codes: promoAllowedFor(amountCents),
     metadata: { listing_id: listing.id, target: listing.target, rank },
     line_items: [{
       quantity: 1,
