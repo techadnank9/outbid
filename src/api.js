@@ -5,7 +5,7 @@ import { CATEGORIES, CATEGORY_BY_SLUG, classify } from './categories.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
-  extractPaymentDetails, ensurePromotionCode, listPromotionCodes
+  extractPaymentDetails, ensurePromotionCode, listPromotionCodes, getPromotionCode
 } from './payments.js';
 
 export const MIN_BID_CENTS = 500;          // $5 floor
@@ -72,7 +72,9 @@ function cached(key, produce){
   return value;
 }
 
-export function invalidate(){ cache.clear(); }
+let promoCache = null;
+
+export function invalidate(){ cache.clear(); promoCache = null; }
 
 /* ── Live updates ─────────────────────────────────────────────── */
 const subscribers = new Set();
@@ -225,6 +227,30 @@ export const routes = {
         paidAt: t.paid_at
       }))
     };
+  },
+
+  /* Public: how many free listings are left. Not a secret — it is the
+     offer itself — and it makes a failed promo setup visible instead of
+     only surfacing as "invalid" on the checkout page. */
+  'GET /api/promo': async () => {
+    const code = process.env.LAUNCH_PROMO_CODE || 'HACKATHON';
+    if (!stripeEnabled) return { code, available: false, reason: 'payments not configured' };
+
+    const now = Date.now();
+    if (promoCache && now - promoCache.at < 60_000) return promoCache.value;
+
+    let value;
+    try {
+      const found = await getPromotionCode(code);
+      value = found?.error ? { code, available: false, reason: found.error }
+        : !found ? { code, available: false, reason: 'not created' }
+        : { code: found.code, available: found.active && (found.remaining ?? 1) > 0,
+            remaining: found.remaining, max: found.max, percentOff: found.percentOff };
+    } catch (err){
+      value = { code, available: false, reason: err.message };
+    }
+    promoCache = { at: now, value };
+    return value;
   },
 
   /* Promotion codes live in Stripe, which is the only place that can count

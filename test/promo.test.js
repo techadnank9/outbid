@@ -50,8 +50,20 @@ describe('promotion codes are Stripe-side only', () => {
     assert.equal(res.status, 400, 'below the floor is still refused');
   });
 
-  test('there is no public promo endpoint to probe', async () => {
-    assert.equal((await fetch(BASE + '/api/promo?code=HACKATHON')).status, 404);
+  test('the public promo endpoint reports availability, never a discount', async () => {
+    const res = await fetch(BASE + '/api/promo');
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    // No Stripe key in tests, so it must say so rather than claiming a code.
+    assert.equal(body.available, false);
+    assert.ok(!('secret' in body) && !('coupon' in body));
+  });
+
+  test('the promo endpoint takes no user input to probe with', async () => {
+    // The code name comes from server config, not the query string, so it
+    // cannot be used to enumerate codes.
+    const a = await (await fetch(BASE + '/api/promo?code=SOMETHINGELSE')).json();
+    assert.equal(a.code, 'HACKATHON');
   });
 
   test('the admin promo endpoints require a token', async () => {

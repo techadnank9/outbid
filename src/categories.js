@@ -45,7 +45,7 @@ export function categoryName(slug){
 const SIGNALS = {
   'ai-agents':     ['ai agent', 'agents', 'autonomous', 'copilot', 'assistant', 'llm', 'gpt', 'chatbot', 'workflow automation', 'automate', 'mcp'],
   'ai-media':      ['image generation', 'text to image', 'text to video', 'video generation', 'voice clone', 'avatar', 'thumbnail', 'photo', 'render', 'diffusion', 'upscale'],
-  'dev-tools':     ['developer', 'api', 'sdk', 'open source', 'github', 'code', 'coding', 'debug', 'ide', 'cli', 'framework', 'library', 'boilerplate', 'component'],
+  'dev-tools':     ['developer', 'developers', 'api', 'sdk', 'open source', 'github', 'code', 'coding', 'debug', 'ide', 'cli', 'framework', 'library', 'boilerplate', 'component'],
   'infrastructure':['hosting', 'deploy', 'serverless', 'database', 'cloud', 'container', 'kubernetes', 'cdn', 'uptime', 'devops', 'infrastructure'],
   'seo':           ['seo', 'backlink', 'ranking', 'serp', 'keyword', 'search visibility', 'organic traffic', 'domain authority', 'indexing'],
   'marketing':     ['marketing', 'ads', 'advertising', 'campaign', 'growth', 'brand', 'audience', 'newsletter', 'email marketing', 'funnel'],
@@ -55,7 +55,7 @@ const SIGNALS = {
   'design':        ['design', 'figma', 'ui kit', 'template', 'font', 'icon', 'illustration', 'mockup', 'branding', 'logo'],
   'productivity':  ['productivity', 'todo', 'task', 'calendar', 'notes', 'habit', 'focus', 'time tracking', 'project management', 'knowledge base'],
   'analytics':     ['analytics', 'dashboard', 'metrics', 'tracking', 'insight', 'reporting', 'data', 'visualization', 'telemetry', 'ab test'],
-  'finance':       ['invoice', 'accounting', 'bookkeeping', 'payment', 'billing', 'tax', 'payroll', 'banking', 'loan', 'legal', 'contract', 'compliance', 'llc'],
+  'finance':       ['invoice', 'accounting', 'bookkeeping', 'payment', 'billing', 'tax', 'payroll', 'banking', 'bank', 'loan', 'legal', 'contract', 'llc', 'financial', 'finance', 'money', 'revenue', 'subscription billing'],
   'ecommerce':     ['ecommerce', 'shopify', 'store', 'checkout', 'dropship', 'product photo', 'inventory', 'retail', 'marketplace', 'shipping'],
   'hiring':        ['hiring', 'recruit', 'job board', 'resume', 'cv', 'candidate', 'interview', 'talent', 'freelancer', 'staffing'],
   'education':     ['course', 'learn', 'tutorial', 'education', 'student', 'teaching', 'flashcard', 'exam', 'school', 'bootcamp'],
@@ -100,7 +100,11 @@ export function classify({ target, kind, title = '', description = '' }){
   // An @handle is a person, whatever their bio happens to mention.
   if (kind === 'handle') return 'profiles';
 
-  const haystack = `${title} ${description}`.toLowerCase();
+  /* A word in the title is far stronger evidence than the same word buried
+     in a paragraph — "Agentic Infrastructure" in a title says what the
+     product is, where one mention in prose might be incidental. */
+  const titleText = String(title).toLowerCase();
+  const bodyText = String(description).toLowerCase();
   const domain = String(target || '').toLowerCase();
 
   let best = null;
@@ -112,8 +116,11 @@ export function classify({ target, kind, title = '', description = '' }){
 
     let score = 0;
     for (const term of terms){
-      if (wordRe(term).test(haystack)) score += weightFor(term);
-      if (domainMatches(domain, term)) score += weightFor(term) * 2;
+      const w = weightFor(term);
+      const re = wordRe(term);
+      if (re.test(titleText)) score += w * 2;
+      if (re.test(bodyText)) score += w;
+      if (domainMatches(domain, term)) score += w * 2;
     }
     if (score > bestScore){ bestScore = score; best = slug; }
   }
