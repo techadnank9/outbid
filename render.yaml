@@ -49,6 +49,9 @@ services:
       #   https://outbidloll.web.app,https://outbidloll.firebaseapp.com
       - key: ALLOWED_ORIGINS
         sync: false
+      # Guards the transaction ledger. openssl rand -hex 32
+      - key: ADMIN_TOKEN
+        sync: false
       - key: DATAFAST_WEBSITE_ID
         sync: false
       - key: DATAFAST_DOMAIN

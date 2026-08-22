@@ -163,7 +163,45 @@ A custom domain is still worth buying before you charge people — listings here
 their SEO value, and a link from a platform subdomain carries less of it. Point it at Firebase
 Hosting when you do; only `PUBLIC_ORIGIN` and `ALLOWED_ORIGINS` need updating.
 
-### Backups
+### Transaction records
+
+Every bid is a row in `bids`. When Stripe confirms a payment, the buyer's details are recorded
+against it:
+
+| column | example |
+|---|---|
+| `customer_email` | `buyer@example.com` |
+| `customer_name` | `A Buyer` |
+| `stripe_customer_id` | `cus_...` |
+| `payment_intent` | `pi_...` |
+| `receipt_url` | Stripe-hosted receipt |
+| `amount_paid_cents` / `currency` | what actually cleared, vs `amount_cents` bid |
+| `card_brand` / `card_last4` | `visa` / `4242` |
+| `country` | billing country |
+
+**Card numbers are never stored.** Stripe does not return them, and holding them would drag this
+app into PCI scope. Brand and last4 are enough to identify a card in a support conversation.
+
+Both confirmation paths write these — the webhook (which carries email and totals) and the success
+redirect (which carries the charge, receipt and card). Writes use `COALESCE`, so whichever arrives
+second fills gaps rather than overwriting.
+
+Read them back over HTTP:
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  https://<api>/api/admin/transactions
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "https://<api>/api/admin/transactions?email=buyer@example.com"
+```
+
+Set `ADMIN_TOKEN` to a long random string. Without it the endpoint returns 503 rather than opening
+up — it fails shut. The token is compared in constant time.
+
+This table holds personal data. Keep `ADMIN_TOKEN` out of the repo, and be ready to delete a
+customer's rows on request.
+
+## Backups
 
 The database is one file. Back it up on a schedule:
 

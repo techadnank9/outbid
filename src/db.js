@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const DB_PATH = process.env.DB_PATH || new URL('../data/outbid.db', import.meta.url).pathname;
+const DB_PATH = process.env.DB_PATH || new URL('../data/outbit.db', import.meta.url).pathname;
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
@@ -74,6 +74,28 @@ if (!listingCols.includes('clicks_total')){
       (SELECT COUNT(*) FROM clicks c WHERE c.listing_id = listings.id)
   `);
 }
+
+/* Payment records. Kept on the bid row: one bid is one transaction, and
+   the money details are useless separated from what was bought.
+   Card numbers are never stored — only Stripe's brand/last4, which is all
+   that is needed to answer "which card was this?" without holding PAN data. */
+const bidCols = db.prepare(`PRAGMA table_info(bids)`).all().map(c => c.name);
+for (const [col, type] of [
+  ['customer_email',     'TEXT'],
+  ['customer_name',      'TEXT'],
+  ['stripe_customer_id', 'TEXT'],
+  ['payment_intent',     'TEXT'],
+  ['receipt_url',        'TEXT'],
+  ['amount_paid_cents',  'INTEGER'],
+  ['currency',           'TEXT'],
+  ['card_brand',         'TEXT'],
+  ['card_last4',         'TEXT'],
+  ['country',            'TEXT']
+]){
+  if (!bidCols.includes(col)) db.exec(`ALTER TABLE bids ADD COLUMN ${col} ${type}`);
+}
+db.exec(`CREATE INDEX IF NOT EXISTS idx_bids_email ON bids(customer_email)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_bids_pi    ON bids(payment_intent)`);
 
 export const launchedAt = Number(
   db.prepare(`SELECT value FROM meta WHERE key = 'launched_at'`).get().value
@@ -191,6 +213,59 @@ export function markBidPaid(sessionId){
   if (!bid || bid.status === 'paid') return bid || null;
   db.prepare(`UPDATE bids SET status = 'paid', paid_at = ? WHERE id = ?`).run(Date.now(), bid.id);
   return db.prepare(`SELECT * FROM bids WHERE id = ?`).get(bid.id);
+}
+
+/* Written when Stripe confirms a payment, from either the webhook or the
+   success redirect. Both can fire, so this must be safe to run twice —
+   COALESCE keeps whichever call had the fuller picture. */
+export function attachPaymentDetails(sessionId, d){
+  db.prepare(`
+    UPDATE bids SET
+      customer_email     = COALESCE(?, customer_email),
+      customer_name      = COALESCE(?, customer_name),
+      stripe_customer_id = COALESCE(?, stripe_customer_id),
+      payment_intent     = COALESCE(?, payment_intent),
+      receipt_url        = COALESCE(?, receipt_url),
+      amount_paid_cents  = COALESCE(?, amount_paid_cents),
+      currency           = COALESCE(?, currency),
+      card_brand         = COALESCE(?, card_brand),
+      card_last4         = COALESCE(?, card_last4),
+      country            = COALESCE(?, country)
+    WHERE session_id = ?
+  `).run(
+    d.email ?? null, d.name ?? null, d.customerId ?? null, d.paymentIntent ?? null,
+    d.receiptUrl ?? null, d.amountPaidCents ?? null, d.currency ?? null,
+    d.cardBrand ?? null, d.cardLast4 ?? null, d.country ?? null,
+    sessionId
+  );
+  return db.prepare(`SELECT * FROM bids WHERE session_id = ?`).get(sessionId) || null;
+}
+
+/* Full transaction ledger, newest first — for the admin endpoint. */
+export function transactions({ limit = 100, offset = 0, email = null } = {}){
+  const where = email ? `AND b.customer_email = ?` : '';
+  const args = email ? [email, limit, offset] : [limit, offset];
+  return db.prepare(`
+    SELECT
+      b.id, b.status, b.provider, b.session_id, b.payment_intent,
+      b.amount_cents, b.amount_paid_cents, b.currency,
+      b.customer_email, b.customer_name, b.stripe_customer_id,
+      b.card_brand, b.card_last4, b.country, b.receipt_url,
+      b.created_at, b.paid_at,
+      l.target, l.title
+    FROM bids b JOIN listings l ON l.id = b.listing_id
+    WHERE 1=1 ${where}
+    ORDER BY b.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...args);
+}
+
+export function transactionCount(){
+  return db.prepare(`SELECT COUNT(*) AS n FROM bids`).get().n;
+}
+
+export function getBidBySession(sessionId){
+  return db.prepare(`SELECT * FROM bids WHERE session_id = ?`).get(sessionId) || null;
 }
 
 export function highestPaidBid(listingId){

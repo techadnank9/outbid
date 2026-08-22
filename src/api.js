@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import * as store from './db.js';
 import { parseTarget, fetchMetadata, InputError } from './metadata.js';
+import { timingSafeEqual } from 'node:crypto';
 import {
-  stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook
+  stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
+  extractPaymentDetails
 } from './payments.js';
 
 export const MIN_BID_CENTS = 500;          // $5 floor
@@ -81,6 +83,22 @@ export function broadcast(event, data){
   }
 }
 
+/* ── Admin auth ───────────────────────────────────────────────── */
+/* A bearer token compared in constant time. Without ADMIN_TOKEN set, the
+   endpoint is closed rather than open — failing shut, not open. */
+function requireAdmin(ctx){
+  const expected = process.env.ADMIN_TOKEN || '';
+  if (!expected){
+    throw new HttpError(503, 'Admin access is not configured.');
+  }
+  const provided = (ctx.authorization || '').replace(/^Bearer\s+/i, '');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length || !timingSafeEqual(a, b)){
+    throw new HttpError(401, 'Unauthorized.');
+  }
+}
+
 /* ── Amount validation ────────────────────────────────────────── */
 function parseAmount(raw){
   const dollars = Number(raw);
@@ -149,6 +167,36 @@ export const routes = {
       minBid: MIN_BID_CENTS / 100,
       listings: store.boardCount(),
       payments: stripeEnabled ? 'stripe' : 'dev'
+    };
+  },
+
+  /* Transaction ledger. Contains customer emails, so it is never public. */
+  'GET /api/admin/transactions': (ctx) => {
+    requireAdmin(ctx);
+    return {
+      total: store.transactionCount(),
+      items: store.transactions({
+        limit: Math.min(500, Number(ctx.query.get('limit')) || 100),
+        offset: Math.max(0, Number(ctx.query.get('offset')) || 0),
+        email: ctx.query.get('email') || null
+      }).map(t => ({
+        id: t.id,
+        status: t.status,
+        provider: t.provider,
+        target: t.target,
+        bid: t.amount_cents / 100,
+        charged: t.amount_paid_cents == null ? null : t.amount_paid_cents / 100,
+        currency: t.currency,
+        email: t.customer_email,
+        name: t.customer_name,
+        card: t.card_brand && t.card_last4 ? `${t.card_brand} ****${t.card_last4}` : null,
+        country: t.country,
+        stripeCustomer: t.stripe_customer_id,
+        paymentIntent: t.payment_intent,
+        receipt: t.receipt_url,
+        createdAt: t.created_at,
+        paidAt: t.paid_at
+      }))
     };
   },
 
@@ -265,6 +313,8 @@ export const routes = {
     const bid = store.markBidPaid(sessionId);
     if (!bid) throw new HttpError(404, 'No bid for that session.');
 
+    store.attachPaymentDetails(sessionId, extractPaymentDetails(session));
+
     const rank = store.listingRank(bid.listing_id);
     broadcast('board', { reason: 'paid', rank });
     return { status: 'confirmed', rank, amount: bid.amount_cents / 100 };
@@ -280,6 +330,12 @@ export function handleWebhook(rawBody, signature){
     const session = event.data.object;
     if (session.payment_status === 'paid'){
       const bid = store.markBidPaid(session.id);
+
+      /* The webhook payload is unexpanded, so it carries the email and
+         totals but not the charge. Record those now; the success redirect
+         fills in the receipt and card, and COALESCE keeps both. */
+      store.attachPaymentDetails(session.id, extractPaymentDetails(session));
+
       if (bid) broadcast('board', { reason: 'webhook' });
     }
   }

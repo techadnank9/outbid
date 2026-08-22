@@ -60,6 +60,10 @@ export async function createCheckoutSession({ listing, amountCents, rank, origin
     success_url: `${origin}/?paid={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/?canceled=1`,
     client_reference_id: bidRef,
+    // Creates a Customer so repeat bidders are recognisable, and makes
+    // Stripe email the receipt itself rather than us having to.
+    customer_creation: 'always',
+    billing_address_collection: 'auto',
     metadata: { listing_id: listing.id, target: listing.target, rank },
     line_items: [{
       quantity: 1,
@@ -77,13 +81,54 @@ export async function createCheckoutSession({ listing, amountCents, rank, origin
   return { id: session.id, url: session.url };
 }
 
+/* Expanding here means one round trip gives us the buyer's email, the
+   payment intent, the charge, the receipt URL and the card brand/last4. */
+const SESSION_EXPAND =
+  'expand[]=payment_intent&expand[]=payment_intent.latest_charge&expand[]=customer';
+
 export async function retrieveSession(id){
   const res = await fetch(
-    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(id)}`,
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(id)}?${SESSION_EXPAND}`,
     { headers: { authorization: `Bearer ${SECRET_KEY}` } }
   );
   if (!res.ok) return null;
   return res.json();
+}
+
+/* Pulls the record we keep out of a Stripe session.
+   Deliberately never touches the full card number — Stripe does not return
+   one, and storing it would drag this app into PCI scope. */
+export function extractPaymentDetails(session){
+  if (!session) return {};
+
+  const pi = typeof session.payment_intent === 'object' ? session.payment_intent : null;
+  const charge = pi && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+  const card = charge?.payment_method_details?.card || null;
+  const customer = typeof session.customer === 'object' ? session.customer : null;
+
+  return {
+    email:
+      session.customer_details?.email ||
+      session.customer_email ||
+      customer?.email ||
+      charge?.billing_details?.email ||
+      null,
+    name:
+      session.customer_details?.name ||
+      customer?.name ||
+      charge?.billing_details?.name ||
+      null,
+    customerId: typeof session.customer === 'string' ? session.customer : customer?.id || null,
+    paymentIntent: typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : pi?.id || null,
+    receiptUrl: charge?.receipt_url || null,
+    amountPaidCents: session.amount_total ?? charge?.amount ?? null,
+    currency: (session.currency || charge?.currency || null)?.toUpperCase() || null,
+    cardBrand: card?.brand || null,
+    cardLast4: card?.last4 || null,
+    country: session.customer_details?.address?.country || card?.country || null
+  };
 }
 
 /* ── Webhook signature verification ──────────────────────────── */

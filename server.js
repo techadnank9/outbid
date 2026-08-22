@@ -226,6 +226,7 @@ const server = createServer(async (req, res) => {
         ip: (TRUST_PROXY && req.headers['x-forwarded-for']?.split(',')[0].trim())
             || req.socket.remoteAddress,
         visitorId: visitorFrom(req, res),
+        authorization: req.headers.authorization || '',
         body: {}
       };
 
