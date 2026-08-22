@@ -22,12 +22,11 @@ case "$TARGET" in
   dethrone)
     BRAND_NAME=Dethrone
     PROJECT=dethronelol
-    # Tracking needs its own property per domain, but the public dashboard
-    # link falls back to the shared one so "see stats" always goes somewhere
-    # real rather than dropping to the About page.
+    # Its own property and its own public dashboard, so Dethrone's numbers
+    # are its own rather than Outbid's.
     DATAFAST_WEBSITE_ID="${DETHRONE_DATAFAST_WEBSITE_ID:-dfid_DaOEDHt5sXT6BBv0rVbxg}"
     DATAFAST_DOMAIN=dethronelol.web.app
-    DATAFAST_SHARE_URL="${DETHRONE_DATAFAST_SHARE_URL:-https://datafa.st/share/6a89ea11f5c2e520d15bace9}"
+    DATAFAST_SHARE_URL="${DETHRONE_DATAFAST_SHARE_URL:-https://datafa.st/share/6a8a021c9847b968c02c20ed}"
     ;;
   *)
     echo "Unknown target '$TARGET'. Use: outbid | dethrone" >&2
