@@ -40,10 +40,13 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      # Must match the public URL exactly, or Stripe redirects land nowhere.
+      # The SITE url (https://outbidloll.web.app), not this API's url.
+      # It builds the Stripe redirects — a mismatch strands paying customers.
       - key: PUBLIC_ORIGIN
         sync: false
-      # Frontend origins allowed to call this API (Firebase serves both).
+      # Frontend origins allowed to call this API.
+      # Firebase serves the site on BOTH hostnames — list both:
+      #   https://outbidloll.web.app,https://outbidloll.firebaseapp.com
       - key: ALLOWED_ORIGINS
         sync: false
       - key: DATAFAST_WEBSITE_ID
