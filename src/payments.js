@@ -131,11 +131,53 @@ export function extractPaymentDetails(session){
   };
 }
 
+/* ── Self-registering webhook ─────────────────────────────────────
+   Creating the endpoint through the API means the signing secret never
+   has to be copied out of the Stripe dashboard by hand — Stripe returns
+   it once, at creation, and we persist it.
+
+   Idempotent: an endpoint already pointing at this URL is reused. */
+export const WEBHOOK_EVENTS = [
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded'
+];
+
+export async function ensureWebhookEndpoint(apiOrigin){
+  if (!stripeEnabled) return { status: 'skipped', reason: 'no stripe key' };
+  if (!apiOrigin)     return { status: 'skipped', reason: 'no api origin' };
+
+  const url = `${apiOrigin.replace(/\/$/, '')}/api/webhook/stripe`;
+
+  const listed = await fetch('https://api.stripe.com/v1/webhook_endpoints?limit=100', {
+    headers: { authorization: `Bearer ${SECRET_KEY}` }
+  });
+  if (!listed.ok){
+    const err = await listed.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Could not list webhooks (${listed.status})`);
+  }
+
+  const existing = (await listed.json()).data?.find(e => e.url === url);
+  if (existing){
+    // Stripe only ever reveals the secret at creation, so an endpoint that
+    // already exists is only usable if we still hold its secret.
+    return { status: 'exists', id: existing.id, url, secret: null };
+  }
+
+  const created = await stripeRequest('webhook_endpoints', {
+    url,
+    enabled_events: WEBHOOK_EVENTS,
+    description: `${BRAND} — bid confirmation`
+  });
+
+  return { status: 'created', id: created.id, url, secret: created.secret || null };
+}
+
 /* ── Webhook signature verification ──────────────────────────── */
 /* Implements Stripe's scheme: the signed payload is "<timestamp>.<raw body>",
    HMAC-SHA256 with the endpoint secret, compared in constant time. */
-export function verifyWebhook(rawBody, signatureHeader, toleranceSec = 300){
-  if (!WEBHOOK_SECRET) throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
+export function verifyWebhook(rawBody, signatureHeader, secret = null, toleranceSec = 300){
+  const signingSecret = secret || WEBHOOK_SECRET;
+  if (!signingSecret) throw new Error('No webhook signing secret available');
   if (!signatureHeader) throw new Error('Missing stripe-signature header');
 
   const parts = Object.fromEntries(
@@ -148,7 +190,7 @@ export function verifyWebhook(rawBody, signatureHeader, toleranceSec = 300){
     throw new Error('Webhook timestamp outside tolerance window');
   }
 
-  const expected = createHmac('sha256', WEBHOOK_SECRET)
+  const expected = createHmac('sha256', signingSecret)
     .update(`${timestamp}.${rawBody}`, 'utf8')
     .digest('hex');
 

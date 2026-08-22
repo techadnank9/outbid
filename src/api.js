@@ -322,8 +322,12 @@ export const routes = {
 };
 
 /* Webhook is handled outside `routes` because it needs the raw body. */
+const WEBHOOK_SECRET_KEY = 'stripe_webhook_secret';
+
 export function handleWebhook(rawBody, signature){
-  const event = verifyWebhook(rawBody, signature);
+  // Prefer an explicitly configured secret; fall back to the one captured
+  // when the server registered the endpoint itself.
+  const event = verifyWebhook(rawBody, signature, store.getMeta(WEBHOOK_SECRET_KEY));
 
   if (event.type === 'checkout.session.completed' ||
       event.type === 'checkout.session.async_payment_succeeded'){

@@ -153,3 +153,53 @@ describe('transaction ledger', () => {
     assert.deepEqual((await res.json()).items, []);
   });
 });
+
+/* ── Webhook secret resolution ───────────────────────────────── */
+import { createHmac } from 'node:crypto';
+import { verifyWebhook } from '../src/payments.js';
+
+function signed(body, secret){
+  const t = Math.floor(Date.now() / 1000);
+  const v1 = createHmac('sha256', secret).update(`${t}.${body}`, 'utf8').digest('hex');
+  return `t=${t},v1=${v1}`;
+}
+
+describe('webhook verification', () => {
+  const body = JSON.stringify({ type: 'checkout.session.completed' });
+
+  test('accepts a payload signed with a runtime secret', () => {
+    const secret = 'whsec_runtime_example';
+    const event = verifyWebhook(body, signed(body, secret), secret);
+    assert.equal(event.type, 'checkout.session.completed');
+  });
+
+  test('rejects a payload signed with a different secret', () => {
+    assert.throws(
+      () => verifyWebhook(body, signed(body, 'whsec_wrong'), 'whsec_right'),
+      /signature mismatch/i
+    );
+  });
+
+  test('rejects a replayed payload outside the tolerance window', () => {
+    const secret = 'whsec_x';
+    const old = Math.floor(Date.now() / 1000) - 4000;
+    const v1 = createHmac('sha256', secret).update(`${old}.${body}`, 'utf8').digest('hex');
+    assert.throws(
+      () => verifyWebhook(body, `t=${old},v1=${v1}`, secret),
+      /tolerance/i
+    );
+  });
+
+  test('refuses to verify when no secret is available anywhere', () => {
+    assert.throws(() => verifyWebhook(body, signed(body, 'x'), null), /no webhook signing secret/i);
+  });
+
+  test('a tampered body fails even with the right secret', () => {
+    const secret = 'whsec_x';
+    const sig = signed(body, secret);
+    assert.throws(
+      () => verifyWebhook(JSON.stringify({ type: 'evil' }), sig, secret),
+      /signature mismatch/i
+    );
+  });
+});

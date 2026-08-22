@@ -170,6 +170,17 @@ export function listingRank(listingId){
   return row.n + 1;
 }
 
+/* ── Key/value meta ───────────────────────────────────────────── */
+export function getMeta(key){
+  return db.prepare(`SELECT value FROM meta WHERE key = ?`).get(key)?.value ?? null;
+}
+export function setMeta(key, value){
+  db.prepare(`
+    INSERT INTO meta (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(key, String(value));
+}
+
 /* ── Listings ─────────────────────────────────────────────────── */
 export function findListing(target){
   return db.prepare(`SELECT * FROM listings WHERE target = ?`).get(target);

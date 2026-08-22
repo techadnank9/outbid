@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 
 import * as store from './src/db.js';
 import { routes, handleWebhook, subscribe, invalidate, HttpError } from './src/api.js';
-import { assertPaymentsConfigured, stripeEnabled } from './src/payments.js';
+import { assertPaymentsConfigured, stripeEnabled, ensureWebhookEndpoint } from './src/payments.js';
 import { renderHtml, analyticsFingerprint, analyticsEnabled } from './src/analytics.js';
 
 assertPaymentsConfigured();
@@ -263,7 +263,36 @@ server.listen(PORT, HOST, () => {
   console.log(`cors: ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(', ') : 'same-origin only'}`);
   console.log(`analytics: ${analyticsEnabled ? 'datafast enabled' : 'disabled (set DATAFAST_WEBSITE_ID + DATAFAST_DOMAIN)'}`);
   console.log(`listings on board: ${store.boardCount()}`);
+  registerWebhook();
 });
+
+/* Register the Stripe webhook on boot, so a deploy is self-sufficient and
+   nobody has to copy a signing secret out of the dashboard.
+   Render exposes its own public URL as RENDER_EXTERNAL_URL. */
+const API_ORIGIN = process.env.PUBLIC_API_ORIGIN || process.env.RENDER_EXTERNAL_URL || '';
+
+async function registerWebhook(){
+  if (!stripeEnabled) return;
+  try {
+    const result = await ensureWebhookEndpoint(API_ORIGIN);
+    if (result.status === 'created' && result.secret){
+      store.setMeta('stripe_webhook_secret', result.secret);
+      console.log(`webhook: created ${result.url} and stored its signing secret`);
+    } else if (result.status === 'exists'){
+      const held = store.getMeta('stripe_webhook_secret') || process.env.STRIPE_WEBHOOK_SECRET;
+      console.log(held
+        ? `webhook: already registered at ${result.url}`
+        : `webhook: endpoint ${result.url} exists but its secret is unknown — `
+          + `delete it in Stripe and redeploy, or set STRIPE_WEBHOOK_SECRET`);
+    } else {
+      console.log(`webhook: not registered (${result.reason})`);
+    }
+  } catch (err){
+    // Never block startup on this — payments still settle via the success
+    // redirect, and the webhook can be registered by hand.
+    console.error(`webhook: registration failed — ${err.message}`);
+  }
+}
 
 for (const sig of ['SIGINT', 'SIGTERM']){
   process.on(sig, () => { server.close(() => process.exit(0)); });

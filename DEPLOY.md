@@ -67,12 +67,25 @@ Site goes live at **https://outbidloll.web.app**.
 
 ---
 
-## 3. Stripe — webhook
+## 3. Stripe — webhook (automatic)
 
-1. Stripe Dashboard → **Developers → Webhooks → Add endpoint**
-2. URL: `https://<your-service>.onrender.com/api/webhook/stripe`
-3. Event: `checkout.session.completed`
-4. Copy the signing secret (`whsec_...`) into Render as `STRIPE_WEBHOOK_SECRET`, then redeploy.
+**No dashboard steps needed.** On boot the server registers its own webhook endpoint through the
+Stripe API, using the secret key already in Render, and stores the signing secret Stripe returns.
+It uses `RENDER_EXTERNAL_URL` to know its own address.
+
+Confirm it worked in the Render logs:
+
+```
+webhook: created https://<service>.onrender.com/api/webhook/stripe and stored its signing secret
+```
+
+Registration is idempotent — an endpoint already pointing at that URL is reused, not duplicated.
+If the log says the endpoint exists but its secret is unknown (because it was created previously
+and Stripe only reveals the secret once), either delete it in the Stripe dashboard and redeploy,
+or set `STRIPE_WEBHOOK_SECRET` manually. An explicit env var always wins.
+
+Registration never blocks startup: if Stripe is unreachable the server still serves, and payments
+still settle via the success redirect.
 
 The webhook is signature-verified, so an unsigned or replayed request is rejected. Payments also
 settle via the success redirect, so a slow webhook won't stall the board — both paths are
