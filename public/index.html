@@ -8,12 +8,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
 
 <header class="site-header">
-  <a class="brand" href="#">
+  <a class="brand" href="/">
     <span class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none"><rect x="1" y="16" width="22" height="3.4" rx="1.7" fill="currentColor"/><rect x="1" y="10.3" width="15" height="3.4" rx="1.7" fill="currentColor" opacity=".62"/><rect x="1" y="4.6" width="9" height="3.4" rx="1.7" fill="currentColor" opacity=".32"/></svg>
     </span>
@@ -32,13 +32,12 @@
 </header>
 
 <main>
-  <!-- ── Hero ─────────────────────────────────────────── -->
   <section class="hero">
     <div class="stats-pill">
       <span class="dot-live"></span>
-      <strong id="onlineCount">671 online</strong>
+      <strong id="onlineCount">—</strong>
       <span class="sep">·</span>
-      <span><span id="visitorCount">1,148,077</span> visitors since launch</span>
+      <span><span id="visitorCount">—</span> visitors since launch</span>
       <span class="sep">·</span>
       <a href="#stats">see stats<span class="arrow">→</span></a>
     </div>
@@ -46,16 +45,16 @@
     <h1 class="hero-title">
       Claim <span class="nowrap">#1 for</span>
       <span class="bid-control">
-        <button class="step" id="stepDown" aria-label="Decrease bid">−</button>
+        <button class="step" id="stepDown" type="button" aria-label="Decrease bid">−</button>
         <span class="bid-wrap">
-          <span class="bid-currency">$</span><input id="bidInput" class="bid-input" inputmode="numeric" aria-label="Amount in dollars" value="14018" />
+          <span class="bid-currency">$</span><input id="bidInput" class="bid-input" inputmode="numeric" aria-label="Amount in dollars" value="5" />
         </span>
-        <button class="step" id="stepUp" aria-label="Increase bid">+</button>
+        <button class="step" id="stepUp" type="button" aria-label="Increase bid">+</button>
       </span>
     </h1>
 
     <p class="hero-sub">
-      <span class="accent">New spots start at $5.</span>
+      <span class="accent">New spots start at <span id="minBid">$5</span>.</span>
       Paying less than the #1 price still puts you on the board at whatever place that bid can take.
     </p>
 
@@ -69,26 +68,27 @@
       <button class="btn-outbid" id="outbidBtn" type="submit" disabled>Outbid</button>
     </form>
 
+    <div class="preview" id="preview" hidden></div>
+
     <p class="hero-hint">Already on the list? Enter the same URL or @handle and up your bid.</p>
+    <p class="dev-banner">Dev payments mode — bids confirm without a real charge.</p>
   </section>
 
-  <!-- ── Trending + Activity ──────────────────────────── -->
   <section class="panels">
     <div class="panel">
       <h2 class="panel-title">🔥 Trending right now</h2>
-      <ul class="panel-list" id="trendingList"></ul>
+      <ul class="panel-list" id="trendingList"><li class="panel-empty">Loading…</li></ul>
     </div>
     <div class="panel">
       <h2 class="panel-title"><span class="dot-pulse"></span> Latest activity</h2>
-      <ul class="panel-list" id="activityList"></ul>
+      <ul class="panel-list" id="activityList"><li class="panel-empty">Loading…</li></ul>
     </div>
   </section>
 
-  <!-- ── Leaderboard ──────────────────────────────────── -->
   <section class="board" id="leaderboard">
     <div id="boardRows"></div>
 
-    <div class="pagination">
+    <div class="pagination" id="pagination" hidden>
       <button class="page-btn" id="prevPage" aria-label="Previous page">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
@@ -108,22 +108,21 @@
     </div>
   </section>
 
-  <!-- ── Revenue ──────────────────────────────────────── -->
   <section class="revenue" id="stats">
     <p class="revenue-lead">This <a href="#about">simple side project</a> made</p>
     <div class="revenue-card">
       <span class="revenue-currency">$</span><span class="revenue-amount" id="revenueAmount">0</span>
     </div>
-    <p class="revenue-foot">since its launch <span id="launchAge">59 hours</span> ago</p>
+    <p class="revenue-foot">since its launch <span id="launchAge">—</span> ago</p>
   </section>
 </main>
 
 <footer class="site-footer" id="rules">
-  Built by <a href="#">@jonathan_wilke</a> · Brought to you by <a href="#">supastarter.dev</a> · <a href="#">Rules</a> · <a href="#stats">Live stats</a>
+  Built by <a href="#">@techadnank9</a> · <a href="#rules">Rules</a> · <a href="#stats">Live stats</a>
 </footer>
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>
