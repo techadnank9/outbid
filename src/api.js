@@ -303,6 +303,45 @@ export const routes = {
     });
   },
 
+  /* Place a listing without payment — restoring one removed by mistake, or
+     comping a spot. Recorded as provider 'comp' with a $0 charge, so it is
+     distinguishable from a real sale and never inflates revenue. */
+  'POST /api/admin/listing': async (ctx) => {
+    requireAdmin(ctx);
+    let parsed;
+    try { parsed = parseTarget(ctx.body?.target); }
+    catch (e){
+      if (e instanceof InputError) throw new HttpError(400, e.message);
+      throw e;
+    }
+
+    const cents = parseAmount(ctx.body?.amount);
+    const meta = await fetchMetadata(parsed);
+    const listing = store.upsertListing({
+      kind: parsed.kind, target: parsed.target, url: parsed.url,
+      title: meta.title, description: meta.description, iconUrl: meta.iconUrl,
+      category: CATEGORY_BY_SLUG.has(ctx.body?.category)
+        ? ctx.body.category
+        : classify({ target: parsed.target, kind: parsed.kind,
+                     title: meta.title, description: meta.description })
+    });
+
+    const bidId = store.createBid({
+      listingId: listing.id, amountCents: cents,
+      status: 'paid', sessionId: `comp_${randomUUID()}`, provider: 'comp'
+    });
+    store.attachPaymentDetails(`comp_${bidId}`, {});   // no-op; keeps shape consistent
+    invalidate();
+    broadcast('board', { reason: 'comp', target: listing.target });
+
+    return {
+      target: listing.target,
+      amount: cents / 100,
+      rank: store.listingRank(listing.id),
+      charged: 0
+    };
+  },
+
   /* Remove a listing — a test row, or one that breaks the rules. */
   'POST /api/admin/listing/delete': (ctx) => {
     requireAdmin(ctx);
