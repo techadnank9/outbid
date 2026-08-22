@@ -181,10 +181,10 @@ function rowHtml(item){
             ? `<span class="row-category">${categoryIcon(item.category)}${escapeHtml(item.categoryName)}</span>`
             : ''}
         </div>
+        <div class="row-claim">claim this rank for ${fmtMoney(item.claimPrice)}</div>
       </div>
       <div class="row-right">
         <div class="row-price">${priceLabel(item)}</div>
-        <div class="row-claim">claim this rank for ${fmtMoney(item.claimPrice)}</div>
       </div>
     </a>` + divider;
 }

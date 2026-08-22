@@ -272,12 +272,17 @@ button{background:none;border:0;cursor:pointer}
 
 .row-right{text-align:right;flex:none}
 .row-price{font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.row{position:relative}
+/* Sits under the price on wide screens, and under the meta on narrow ones,
+   so it never competes with the description for width. */
 .row-claim{
-  margin-top:5px;font-size:13px;color:var(--primary);
+  position:absolute;right:4px;bottom:16px;
+  font-size:13px;color:var(--primary);
   opacity:0;transform:translateY(-2px);
   transition:opacity .15s,transform .15s;
   white-space:nowrap;
 }
+.row.top .row-claim{right:18px;bottom:18px}
 .row:hover .row-claim{opacity:1;transform:none}
 
 .divider{
@@ -396,17 +401,61 @@ button{background:none;border:0;cursor:pointer}
   .nav a:active{background:var(--card)}
   .nav #themeToggle{display:none}
   .theme-toggle-mobile{display:grid}
+
   .hero{padding-top:24px}
   .hero-title{margin-top:26px}
   .claim-form{flex-direction:column;align-items:stretch}
   .btn-outbid{width:100%}
-  .row{grid-template-columns:auto 44px 1fr;gap:12px;padding:14px 2px}
-  .row-avatar{width:42px;height:42px;border-radius:12px;font-size:17px}
-  .row-right{grid-column:1/-1;text-align:left;padding-left:56px;margin-top:-4px}
-  .row-claim{opacity:1;transform:none}
-  .rank{font-size:16px;min-width:30px}
-  .row-name{font-size:16.5px}
-  .row-desc{font-size:14px}
+
+  /* ── Board rows ──────────────────────────────────────
+     The price sits on the title line rather than on its own row, so a
+     listing reads as one block instead of four stacked fragments. */
+  .row{
+    position:relative;
+    grid-template-columns:auto 42px 1fr;
+    gap:10px;
+    padding:14px 0;
+    align-items:start;
+  }
+  .row.top{padding:14px 14px;margin-bottom:10px}
+
+  .rank{font-size:14px;min-width:26px;padding-top:2px}
+  .row.top .rank{font-size:13px;padding:2px 8px}
+  .row-avatar{width:42px;height:42px;border-radius:11px;font-size:16px}
+
+  .row-main{min-width:0}
+  .row-name{
+    font-size:15.5px;
+    padding-right:76px;          /* clear the price */
+  }
+  .row-desc{
+    font-size:13px;line-height:1.4;margin-top:2px;
+    -webkit-line-clamp:2;
+  }
+
+  /* Price pinned to the title line, top-right of the row. */
+  .row-right{
+    position:absolute;top:14px;right:0;
+    text-align:right;width:auto;
+  }
+  .row.top .row-right{top:14px;right:14px}
+  .row-price{font-size:16px;line-height:1.2}
+
+  .row-meta{
+    margin-top:6px;
+    flex-wrap:wrap;gap:4px 10px;
+    font-size:12.5px;
+  }
+  /* Claim price reads as its own action line under the meta. */
+  .row-claim{
+    position:static;opacity:1;transform:none;
+    margin-top:6px;font-size:12.5px;
+    white-space:normal;
+  }
+
+  .cat-picker{flex:1 1 auto}
+  .cat-picker-menu{width:100%;right:auto;left:0}
+  .cat-tabs{margin-left:-24px;margin-right:-24px;padding-left:24px;padding-right:24px}
 }
 
 /* ── Bid preview ────────────────────────────────────── */
@@ -654,6 +703,10 @@ a.row{color:inherit;text-decoration:none}
 /* icons inside tabs and row chips */
 .cat-tab .cat-icon{width:16px;height:16px;opacity:.85}
 .row-category{display:inline-flex;align-items:center;gap:5px}
+@media (max-width:640px){
+  .row-category{font-size:11.5px;padding:1px 7px}
+  .row-category .cat-icon{width:12px;height:12px}
+}
 .row-category .cat-icon{width:13px;height:13px}
 
 @media (max-width:640px){
