@@ -306,3 +306,30 @@ describe('stripe webhook', () => {
     assert.equal(res.status, 400);
   });
 });
+
+describe('deployment surface', () => {
+  test('health check reports readiness', async () => {
+    const { status, body } = await json('/healthz');
+    assert.equal(status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(typeof body.listings, 'number');
+    assert.equal(typeof body.uptime, 'number');
+  });
+
+  test('does not trust X-Forwarded-For unless a proxy is declared', async () => {
+    // TRUST_PROXY is off in tests, so a spoofed header must not become the
+    // rate-limit key — otherwise a caller could rotate it to bypass limits.
+    const res = await req('/api/board', { headers: { 'x-forwarded-for': '1.2.3.4' } });
+    assert.equal(res.status, 200);
+  });
+
+  test('sets a visitor cookie without Secure off-TLS', async () => {
+    const res = await fetch(BASE + '/api/stats');
+    const c = res.headers.get('set-cookie');
+    if (c){
+      assert.match(c, /HttpOnly/);
+      assert.match(c, /SameSite=Lax/);
+      assert.ok(!/Secure/.test(c), 'Secure would break plain-HTTP local dev');
+    }
+  });
+});

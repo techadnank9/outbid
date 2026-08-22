@@ -74,20 +74,54 @@ their dashboard to attribute revenue back to traffic source, no code needed.
 
 Never hardcode a website id: traffic would report into someone else's dashboard.
 
-## Going live
+## Deploying to Render
+
+`render.yaml` is a ready-to-use blueprint. In Render: **New + → Blueprint**, pick this repo.
+
+The **persistent disk is not optional**. Render's filesystem is otherwise wiped on every deploy
+and restart, which would destroy every bid and payment record. The blueprint mounts a 1GB disk at
+`/var/data` and points `DB_PATH` at it. That also pins the service to a single instance, which is
+what you want anyway: SQLite needs one writer, and the SSE subscriber list, response cache and rate
+limiter are all per-process.
+
+Set these in the Render dashboard (never commit them):
+
+| variable | value |
+|---|---|
+| `STRIPE_SECRET_KEY` | `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
+| `PUBLIC_ORIGIN` | your exact public URL, e.g. `https://oddbit.onrender.com` |
+| `DATAFAST_WEBSITE_ID` / `DATAFAST_DOMAIN` | optional analytics |
+
+`PUBLIC_ORIGIN` must match the live URL exactly — it builds the Stripe success and cancel
+redirects, so a mismatch sends paying customers to a dead page.
+
+Then point a Stripe webhook at `<PUBLIC_ORIGIN>/api/webhook/stripe` for `checkout.session.completed`.
+
+**Node 24+ is required** — `node:sqlite` is still behind a flag on Node 22. The blueprint pins
+`NODE_VERSION=24`.
+
+In production the server binds `0.0.0.0`, marks the visitor cookie `Secure`, trusts
+`X-Forwarded-For` from the platform proxy, and refuses to start without a Stripe key.
+`/healthz` is the readiness probe.
+
+### Domains
+
+Render gives you `<service>.onrender.com` free, which runs the whole app. A Firebase `*.web.app`
+subdomain cannot: free Firebase Hosting is static-only, the Spark plan blocks the outbound calls
+this app makes to Stripe and to the sites it scrapes, and Cloud Run's ephemeral disk would erase
+the database.
+
+A custom domain is worth buying before you charge people — listings here are sold partly for their
+SEO value, and a link from a platform subdomain carries less of it.
+
+### Backups
+
+The database is one file. Back it up on a schedule:
 
 ```bash
-export STRIPE_SECRET_KEY=sk_live_...      # from your own Stripe dashboard
-export STRIPE_WEBHOOK_SECRET=whsec_...    # from the webhook endpoint you create
-export PUBLIC_ORIGIN=https://your-domain
-export NODE_ENV=production
-npm start
+sqlite3 /var/data/outbid.db ".backup '/var/data/backup-$(date +%F).db'"
 ```
-
-Point a Stripe webhook at `https://your-domain/api/webhook/stripe` for the
-`checkout.session.completed` event.
-
-Run it behind a TLS-terminating reverse proxy, under a process manager, and back up `data/outbid.db`.
 
 ## Measured performance
 

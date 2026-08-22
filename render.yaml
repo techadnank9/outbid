@@ -1,0 +1,51 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repo, then in Render pick "New +" → "Blueprint" and select it.
+#
+# The disk is the important part. Render's filesystem is otherwise ephemeral,
+# so without a mounted disk every bid and payment record would be wiped on each
+# deploy and restart. DB_PATH points the database at the mounted volume.
+#
+# A service with a disk cannot run more than one instance — which is correct
+# here: SQLite wants a single writer, and the SSE subscriber list, response
+# cache and rate limiter are all per-process.
+
+services:
+  - type: web
+    name: oddbit
+    runtime: node
+    plan: starter          # a disk requires a paid instance; free tier also sleeps
+    region: oregon
+    branch: main
+    numInstances: 1        # required with a disk, and required by SQLite
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+
+    disk:
+      name: outbid-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_VERSION
+        value: "24"        # node:sqlite is unflagged from v24
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/outbid.db
+
+      # Set in the Render dashboard, not here — never commit secrets.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Must match the public URL exactly, or Stripe redirects land nowhere.
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: DATAFAST_WEBSITE_ID
+        sync: false
+      - key: DATAFAST_DOMAIN
+        sync: false
+      - key: DATAFAST_SHARE_URL
+        sync: false

@@ -11,7 +11,14 @@ import { renderHtml, analyticsFingerprint, analyticsEnabled } from './src/analyt
 assertPaymentsConfigured();
 
 const PORT = Number(process.env.PORT) || 4321;
-const HOST = process.env.HOST || '127.0.0.1';
+/* Platforms like Render route to the container's external interface, so a
+   loopback bind fails their health check. Default to loopback only locally. */
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+
+/* Only believe X-Forwarded-For when we know a proxy set it — otherwise a
+   client could spoof its IP and walk straight past the rate limiter. */
+const TRUST_PROXY = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
+const SECURE_COOKIES = process.env.NODE_ENV === 'production';
 const PUBLIC_DIR = new URL('./public/', import.meta.url).pathname;
 
 const MIME = {
@@ -79,7 +86,8 @@ function visitorFrom(req, res){
   if (!id || !/^[0-9a-f-]{36}$/.test(id)){
     id = randomUUID();
     res.setHeader('set-cookie',
-      `vid=${id}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
+      `vid=${id}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`
+      + (SECURE_COOKIES ? '; Secure' : ''));
   }
   return id;
 }
@@ -132,6 +140,11 @@ const server = createServer(async (req, res) => {
   const key = `${req.method} ${pathname}`;
 
   try {
+    /* ── Health check (platform probes hit this) ── */
+    if (key === 'GET /healthz'){
+      return send(res, 200, { ok: true, listings: store.boardCount(), uptime: Math.round(process.uptime()) });
+    }
+
     /* ── Click-through tracking ── */
     if (req.method === 'GET' && pathname.startsWith('/r/')){
       const id = Number(pathname.slice(3));
@@ -176,7 +189,8 @@ const server = createServer(async (req, res) => {
       const ctx = {
         query: url.searchParams,
         origin: process.env.PUBLIC_ORIGIN || `http://${req.headers.host}`,
-        ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress,
+        ip: (TRUST_PROXY && req.headers['x-forwarded-for']?.split(',')[0].trim())
+            || req.socket.remoteAddress,
         visitorId: visitorFrom(req, res),
         body: {}
       };
@@ -210,6 +224,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`outbid listening on http://${HOST}:${PORT}`);
   console.log(`payments: ${stripeEnabled ? 'stripe (live checkout)' : 'DEV MODE — bids confirm without payment'}`);
+  console.log(`env: ${process.env.NODE_ENV || 'development'} | trust proxy: ${TRUST_PROXY}`);
   console.log(`analytics: ${analyticsEnabled ? 'datafast enabled' : 'disabled (set DATAFAST_WEBSITE_ID + DATAFAST_DOMAIN)'}`);
   console.log(`listings on board: ${store.boardCount()}`);
 });
