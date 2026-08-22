@@ -25,7 +25,7 @@ case "$TARGET" in
     # Tracking needs its own property per domain, but the public dashboard
     # link falls back to the shared one so "see stats" always goes somewhere
     # real rather than dropping to the About page.
-    DATAFAST_WEBSITE_ID="${DETHRONE_DATAFAST_WEBSITE_ID:-}"
+    DATAFAST_WEBSITE_ID="${DETHRONE_DATAFAST_WEBSITE_ID:-dfid_DaOEDHt5sXT6BBv0rVbxg}"
     DATAFAST_DOMAIN=dethronelol.web.app
     DATAFAST_SHARE_URL="${DETHRONE_DATAFAST_SHARE_URL:-https://datafa.st/share/6a89ea11f5c2e520d15bace9}"
     ;;
