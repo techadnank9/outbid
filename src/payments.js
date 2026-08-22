@@ -199,7 +199,7 @@ export async function ensurePromotionCode({
 
   const listed = await fetch(
     `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`
-      + `&expand[]=data.promotion.coupon`,
+      + `&active=true&expand[]=data.promotion.coupon`,
     { headers: { authorization: `Bearer ${SECRET_KEY}` } }
   );
   if (!listed.ok){
@@ -247,7 +247,7 @@ export async function getPromotionCode(code){
   if (!stripeEnabled) return null;
   const res = await fetch(
     `https://api.stripe.com/v1/promotion_codes?code=${encodeURIComponent(code)}&limit=1`
-      + `&expand[]=data.promotion.coupon`,
+      + `&active=true&expand[]=data.promotion.coupon`,
     { headers: { authorization: `Bearer ${SECRET_KEY}` } }
   );
   if (!res.ok){
