@@ -261,6 +261,8 @@ export const routes = {
       title: meta.title,
       description: meta.description,
       icon: meta.iconUrl,
+      // What the classifier guessed — the form pre-selects it, and the
+      // bidder can override it before paying.
       category: classify({
         target: parsed.target, kind: parsed.kind,
         title: meta.title, description: meta.description
@@ -311,10 +313,15 @@ export const routes = {
       title: meta.title,
       description: meta.description,
       iconUrl: meta.iconUrl,
-      category: classify({
-        target: parsed.target, kind: parsed.kind,
-        title: meta.title, description: meta.description
-      })
+      /* A category chosen in the form wins; otherwise fall back to the
+         classifier. An unknown slug is ignored rather than rejected — a bad
+         dropdown value should never block a payment. */
+      category: CATEGORY_BY_SLUG.has(ctx.body.category)
+        ? ctx.body.category
+        : classify({
+            target: parsed.target, kind: parsed.kind,
+            title: meta.title, description: meta.description
+          })
     });
 
     const rank = store.rankForAmount(cents, listing.id);

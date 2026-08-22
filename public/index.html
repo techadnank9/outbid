@@ -43,6 +43,14 @@
         </span>
         <input id="urlInput" type="text" placeholder="Your product URL or @handle" aria-label="Your product URL or @handle" />
       </div>
+      <div class="field field-select">
+        <select id="categorySelect" aria-label="Category">
+          <option value="">Choose a category</option>
+        </select>
+        <span class="select-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </div>
       <button class="btn-outbid" id="outbidBtn" type="submit" disabled>Outbid</button>
     </form>
 
@@ -64,6 +72,7 @@
   </section>
 
   <section class="board" id="leaderboard">
+    <nav class="cat-tabs" id="categoryTabs" aria-label="Filter by category"></nav>
     <div class="cat-banner" id="categoryBanner" hidden></div>
     <div id="boardRows"></div>
 

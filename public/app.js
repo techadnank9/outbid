@@ -240,6 +240,59 @@ async function loadPanels(){
   }
 }
 
+/* ── Categories ───────────────────────────────────────────────── */
+let categories = [];
+
+async function loadCategories(){
+  try {
+    categories = (await api('/api/categories')).items;
+  } catch { return; }
+
+  const select = $('categorySelect');
+  if (select){
+    const keep = select.value;
+    select.innerHTML = '<option value="">Choose a category</option>'
+      + categories.map(c => `<option value="${c.slug}">${escapeHtml(c.name)}</option>`).join('');
+    select.value = keep;
+  }
+  renderTabs();
+}
+
+/* Busiest categories first, so the tabs lead with where the action is
+   rather than with an arbitrary alphabetical order. */
+function renderTabs(){
+  const tabs = $('categoryTabs');
+  if (!tabs) return;
+
+  const ordered = [...categories].sort((a, b) =>
+    b.listings - a.listings || a.name.localeCompare(b.name));
+
+  tabs.innerHTML =
+    `<button class="cat-tab${!state.category ? ' active' : ''}" data-slug="">All</button>`
+    + ordered.map(c => `
+        <button class="cat-tab${state.category === c.slug ? ' active' : ''}" data-slug="${c.slug}">
+          ${escapeHtml(c.name)}${c.listings ? `<span class="cat-tab-count">${c.listings}</span>` : ''}
+        </button>`).join('');
+
+  const active = tabs.querySelector('.cat-tab.active');
+  if (active && state.category) active.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+
+$('categoryTabs')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.cat-tab');
+  if (!btn) return;
+  state.category = btn.dataset.slug || null;
+
+  // Keep the URL shareable without reloading the page.
+  const url = new URL(location.href);
+  if (state.category) url.searchParams.set('category', state.category);
+  else url.searchParams.delete('category');
+  history.replaceState({}, '', url);
+
+  renderTabs();
+  loadBoard(1);
+});
+
 /* ── Stats ────────────────────────────────────────────────────── */
 async function loadStats(){
   try {
@@ -321,6 +374,9 @@ async function runPreview(){
     });
     if (seq !== previewSeq) return;   // a newer lookup already won
 
+    const select = $('categorySelect');
+    if (select && !select.dataset.touched && data.category) select.value = data.category;
+
     const warn = data.alreadyListed && !data.beatsCurrent;
     box.className = 'preview' + (warn ? ' warn' : '');
     box.innerHTML = `
@@ -340,6 +396,11 @@ async function runPreview(){
     box.textContent = err.message;
   }
 }
+
+$('categorySelect')?.addEventListener('change', (e) => {
+  // Once chosen by hand, a later lookup must not silently change it.
+  e.target.dataset.touched = '1';
+});
 
 $('urlInput').addEventListener('input', (e) => {
   $('outbidBtn').disabled = e.target.value.trim().length === 0;
@@ -361,7 +422,11 @@ $('claimForm').addEventListener('submit', async (e) => {
   try {
     const data = await api('/api/bid', {
       method: 'POST',
-      body: JSON.stringify({ target, amount: currentBid() })
+      body: JSON.stringify({
+        target,
+        amount: currentBid(),
+        category: $('categorySelect')?.value || undefined
+      })
     });
 
     if (data.status === 'checkout'){
@@ -375,6 +440,8 @@ $('claimForm').addEventListener('submit', async (e) => {
     $('urlInput').value = '';
     cancelPreview();
     state.bidEdited = false;
+    const sel = $('categorySelect');
+    if (sel){ sel.value = ''; delete sel.dataset.touched; }
     await refreshAll();
   } catch (err){
     toast(err.message, true);
@@ -451,7 +518,7 @@ $('refreshBtn').addEventListener('click', async () => {
 });
 
 async function refreshAll(){
-  await Promise.all([loadBoard(), loadPanels(), loadStats()]);
+  await Promise.all([loadBoard(), loadPanels(), loadStats(), loadCategories()]);
 }
 
 /* ── Live updates ─────────────────────────────────────────────── */

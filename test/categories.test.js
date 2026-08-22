@@ -160,3 +160,46 @@ describe('category pages', () => {
     assert.equal(unauth.status, 401);
   });
 });
+
+describe('choosing a category at bid time', () => {
+  test('an explicit choice overrides the classifier', async () => {
+    await fetch(BASE + '/api/bid', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ target: 'figma.com', amount: 12, category: 'crypto' })
+    });
+    const board = await (await fetch(BASE + '/api/board')).json();
+    const row = board.items.find(i => i.target === 'figma.com');
+    assert.equal(row.category, 'crypto', 'the bidder chose, so the guess is ignored');
+  });
+
+  test('no choice falls back to the classifier', async () => {
+    // The domain alone carries the signal, so this does not depend on the
+    // remote site being scrapeable — bot protection would make that flaky.
+    await fetch(BASE + '/api/bid', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ target: 'hosting.com', amount: 9 })
+    });
+    const board = await (await fetch(BASE + '/api/board')).json();
+    assert.equal(board.items.find(i => i.target === 'hosting.com').category, 'infrastructure');
+  });
+
+  test('a bogus category never blocks a payment', async () => {
+    const res = await fetch(BASE + '/api/bid', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ target: 'stripe.com', amount: 7, category: '../../etc/passwd' })
+    });
+    assert.equal(res.status, 200, 'a bad dropdown value must not cost a sale');
+    const board = await (await fetch(BASE + '/api/board')).json();
+    const row = board.items.find(i => i.target === 'stripe.com');
+    assert.ok(CATEGORY_BY_SLUG.has(row.category), 'fell back to a real category');
+  });
+
+  test('preview suggests a category for the form to pre-select', async () => {
+    const res = await fetch(BASE + '/api/preview', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ target: 'github.com', amount: 50 })
+    });
+    const body = await res.json();
+    assert.ok(CATEGORY_BY_SLUG.has(body.category), 'preview returns a usable slug');
+  });
+});
