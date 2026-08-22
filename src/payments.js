@@ -237,7 +237,7 @@ export async function ensurePromotionCode({
     promotion: { type: 'coupon', coupon: coupon.id },
     code,
     max_redemptions: maxRedemptions
-  }, { idempotencyKey: `promo_${code}` });
+  }, { idempotencyKey: `promo_${code}_${amountOffCents}` });
 
   return { status: 'created', code: promo.code, id: promo.id,
            max: promo.max_redemptions, redeemed: promo.times_redeemed };
