@@ -53,6 +53,27 @@ first. Both paths are idempotent. Webhook signatures are verified with HMAC-SHA2
 
 **Live updates.** Server-sent events push a board refresh the moment a bid clears.
 
+## Analytics (DataFast)
+
+outbid.lol uses [DataFast](https://datafa.st) — cookieless, no consent banner — and this does too.
+It stays inert until you point it at your own property:
+
+```bash
+export DATAFAST_WEBSITE_ID=dfid_...        # from your DataFast dashboard
+export DATAFAST_DOMAIN=your-domain.com
+export DATAFAST_SHARE_URL=https://datafa.st/share/...   # optional public dashboard
+```
+
+The tracker tag is templated into the HTML at serve time (it reads its config off data attributes,
+so it must be real markup). With `DATAFAST_SHARE_URL` set, the "see stats" and "Live stats" links
+point at your public dashboard, the way outbid.lol's do.
+
+Two goals fire through `window.datafast()`: `checkout_started` when a bid reaches Stripe, and
+`bid_confirmed` when payment settles. DataFast also has a native Stripe integration — connect it in
+their dashboard to attribute revenue back to traffic source, no code needed.
+
+Never hardcode a website id: traffic would report into someone else's dashboard.
+
 ## Going live
 
 ```bash

@@ -317,10 +317,12 @@ $('claimForm').addEventListener('submit', async (e) => {
     });
 
     if (data.status === 'checkout'){
+      goal('checkout_started', { target: data.target, rank: data.rank });
       window.location.href = data.checkoutUrl;   // real Stripe Checkout
       return;
     }
 
+    goal('bid_confirmed', { target: data.target, rank: data.rank, amount: data.amount });
     toast(`${data.target} is live at #${data.rank} for ${fmtMoney(data.amount)}.`);
     $('urlInput').value = '';
     cancelPreview();
@@ -352,6 +354,7 @@ async function settleReturnFromCheckout(){
       body: JSON.stringify({ sessionId })
     });
     if (data.status === 'confirmed'){
+      goal('bid_confirmed', { rank: data.rank, amount: data.amount });
       toast(`Payment received — you are at #${data.rank}.`);
     } else {
       toast('Payment is still processing. The board will update shortly.');
@@ -362,6 +365,13 @@ async function settleReturnFromCheckout(){
     history.replaceState({}, '', location.pathname);
     await refreshAll();
   }
+}
+
+/* ── Analytics goals ──────────────────────────────────────────── */
+/* datafast() only exists once the tracker script loads, and the tracker is
+   only injected when DataFast is configured — so this is a no-op otherwise. */
+function goal(name, meta){
+  try { window.datafast?.(name, meta); } catch { /* never break the flow */ }
 }
 
 /* ── Toast ────────────────────────────────────────────────────── */

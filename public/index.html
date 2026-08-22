@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css" />
+<!--ANALYTICS-->
 </head>
 <body>
 
@@ -39,7 +40,7 @@
       <span class="sep">·</span>
       <span><span id="visitorCount">—</span> visitors since launch</span>
       <span class="sep">·</span>
-      <a href="#stats">see stats<span class="arrow">→</span></a>
+      <a href="%STATS_HREF%"%STATS_TARGET%>see stats<span class="arrow">→</span></a>
     </div>
 
     <h1 class="hero-title">
@@ -118,7 +119,7 @@
 </main>
 
 <footer class="site-footer" id="rules">
-  Built by <a href="#">@techadnank9</a> · <a href="#rules">Rules</a> · <a href="#stats">Live stats</a>
+  Built by <a href="#">@techadnank9</a> · <a href="#rules">Rules</a> · <a href="%STATS_HREF%"%STATS_TARGET%>Live stats</a>
 </footer>
 
 <div class="toast" id="toast"></div>

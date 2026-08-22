@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import * as store from './src/db.js';
 import { routes, handleWebhook, subscribe, invalidate, HttpError } from './src/api.js';
 import { assertPaymentsConfigured, stripeEnabled } from './src/payments.js';
+import { renderHtml, analyticsFingerprint, analyticsEnabled } from './src/analytics.js';
 
 assertPaymentsConfigured();
 
@@ -98,13 +99,19 @@ async function serveStatic(req, res, pathname){
     /* Revalidate rather than cache blindly: a deploy changes mtime/size, so
        the ETag changes and clients pick up new CSS/JS immediately, while
        unchanged assets still cost only a 304. */
-    const etag = `W/"${info.size.toString(16)}-${info.mtimeMs.toString(36)}"`;
+    const isHtml = extname(file) === '.html';
+    const etag = `W/"${info.size.toString(16)}-${info.mtimeMs.toString(36)}`
+               + `${isHtml ? '-' + analyticsFingerprint : ''}"`;
     if (req.headers['if-none-match'] === etag){
       res.writeHead(304, { etag, 'cache-control': 'no-cache' });
       return res.end();
     }
 
-    const body = await readFile(file);
+    // HTML gets the analytics config templated in; other assets stream as-is.
+    const body = isHtml
+      ? Buffer.from(renderHtml(await readFile(file, 'utf8')), 'utf8')
+      : await readFile(file);
+
     res.writeHead(200, {
       'content-type': MIME[extname(file)] || 'application/octet-stream',
       'content-length': body.length,
@@ -203,6 +210,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`outbid listening on http://${HOST}:${PORT}`);
   console.log(`payments: ${stripeEnabled ? 'stripe (live checkout)' : 'DEV MODE — bids confirm without payment'}`);
+  console.log(`analytics: ${analyticsEnabled ? 'datafast enabled' : 'disabled (set DATAFAST_WEBSITE_ID + DATAFAST_DOMAIN)'}`);
   console.log(`listings on board: ${store.boardCount()}`);
 });
 
