@@ -241,11 +241,31 @@ export const routes = {
 
     let value;
     try {
-      const found = await getPromotionCode(code);
-      value = found?.error ? { code, available: false, reason: found.error }
-        : !found ? { code, available: false, reason: 'not created' }
-        : { code: found.code, available: found.active && (found.remaining ?? 1) > 0,
-            remaining: found.remaining, max: found.max, percentOff: found.percentOff };
+      let found = await getPromotionCode(code);
+
+      /* Self-heal: boot-time setup can fail (Stripe briefly unreachable, a
+         key swapped in later) and there is no good reason to stay broken
+         until the next deploy. Creation is idempotent, and the surrounding
+         cache means this is attempted at most once a minute. */
+      if (!found){
+        try {
+          await ensurePromotionCode({
+            code,
+            percentOff: 100,
+            maxRedemptions: Number(process.env.LAUNCH_PROMO_MAX) || 100
+          });
+          found = await getPromotionCode(code);
+        } catch (err){
+          value = { code, available: false, reason: `setup failed: ${err.message}` };
+        }
+      }
+
+      if (!value){
+        value = found?.error ? { code, available: false, reason: found.error }
+          : !found ? { code, available: false, reason: 'not created' }
+          : { code: found.code, available: found.active && (found.remaining ?? 1) > 0,
+              remaining: found.remaining, max: found.max, percentOff: found.percentOff };
+      }
     } catch (err){
       value = { code, available: false, reason: err.message };
     }
