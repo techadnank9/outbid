@@ -54,6 +54,15 @@
       <button class="btn-outbid" id="outbidBtn" type="submit" disabled>Outbid</button>
     </form>
 
+    <div class="promo-row">
+      <button type="button" class="promo-toggle" id="promoToggle">Have a promo code?</button>
+      <div class="promo-entry" id="promoEntry" hidden>
+        <input id="promoInput" type="text" placeholder="Promo code" aria-label="Promo code"
+               autocomplete="off" spellcheck="false" />
+        <span class="promo-status" id="promoStatus"></span>
+      </div>
+    </div>
+
     <div class="preview" id="preview" hidden></div>
 
     <p class="hero-hint">Already on the list? Enter the same URL or @handle and up your bid.</p>

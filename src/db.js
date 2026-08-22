@@ -47,6 +47,24 @@ db.exec(`
     last_seen   INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS promo_codes (
+    code             TEXT PRIMARY KEY,          -- stored upper-case
+    amount_cents     INTEGER NOT NULL,          -- what the code is worth
+    max_redemptions  INTEGER NOT NULL,
+    redeemed         INTEGER NOT NULL DEFAULT 0,
+    active           INTEGER NOT NULL DEFAULT 1,
+    created_at       INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS promo_redemptions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code        TEXT NOT NULL,
+    listing_id  INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    bid_id      INTEGER,
+    created_at  INTEGER NOT NULL,
+    UNIQUE(code, listing_id)                    -- one redemption per listing
+  );
+
   CREATE TABLE IF NOT EXISTS meta (
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL
@@ -100,6 +118,13 @@ if (!listingCols.includes('category')){
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_bids_email ON bids(customer_email)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_bids_pi    ON bids(payment_intent)`);
+
+/* The launch code. Seeded once; edit it in the database or via the admin
+   endpoint rather than here, so a redeploy never resets the counter. */
+db.prepare(`
+  INSERT OR IGNORE INTO promo_codes (code, amount_cents, max_redemptions, active, created_at)
+  VALUES ('HACKATHON', 500, 100, 1, ?)
+`).run(Date.now());
 
 export const launchedAt = Number(
   db.prepare(`SELECT value FROM meta WHERE key = 'launched_at'`).get().value
@@ -318,6 +343,81 @@ export function highestPaidBid(listingId){
     SELECT MAX(amount_cents) AS n FROM bids WHERE listing_id = ? AND status = 'paid'
   `).get(listingId);
   return row.n || 0;
+}
+
+/* ── Promo codes ──────────────────────────────────────────────── */
+export function findPromo(code){
+  return db.prepare(`SELECT * FROM promo_codes WHERE code = ?`)
+    .get(String(code || '').trim().toUpperCase()) || null;
+}
+
+export function promoStatus(code){
+  const promo = findPromo(code);
+  if (!promo) return { valid: false, reason: 'unknown' };
+  if (!promo.active) return { valid: false, reason: 'inactive' };
+  const remaining = promo.max_redemptions - promo.redeemed;
+  if (remaining <= 0) return { valid: false, reason: 'exhausted', remaining: 0 };
+  return {
+    valid: true,
+    code: promo.code,
+    amount: promo.amount_cents / 100,
+    remaining,
+    total: promo.max_redemptions
+  };
+}
+
+/* Claims one redemption, or returns null if the code is spent.
+   The counter is incremented by a conditional UPDATE inside an immediate
+   transaction, so two simultaneous redemptions of the hundredth slot cannot
+   both succeed — the second one matches no row. */
+export function redeemPromo(code, listingId){
+  const normalized = String(code || '').trim().toUpperCase();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const already = db.prepare(
+      `SELECT 1 FROM promo_redemptions WHERE code = ? AND listing_id = ?`
+    ).get(normalized, listingId);
+    if (already){ db.exec('ROLLBACK'); return { ok: false, reason: 'already_used' }; }
+
+    const res = db.prepare(`
+      UPDATE promo_codes SET redeemed = redeemed + 1
+      WHERE code = ? AND active = 1 AND redeemed < max_redemptions
+    `).run(normalized);
+
+    if (res.changes === 0){ db.exec('ROLLBACK'); return { ok: false, reason: 'exhausted' }; }
+
+    db.prepare(`
+      INSERT INTO promo_redemptions (code, listing_id, created_at) VALUES (?, ?, ?)
+    `).run(normalized, listingId, Date.now());
+
+    const promo = db.prepare(`SELECT * FROM promo_codes WHERE code = ?`).get(normalized);
+    db.exec('COMMIT');
+    return {
+      ok: true,
+      amountCents: promo.amount_cents,
+      remaining: promo.max_redemptions - promo.redeemed
+    };
+  } catch (err){
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+export function upsertPromo({ code, amountCents, maxRedemptions, active = 1 }){
+  const normalized = String(code).trim().toUpperCase();
+  db.prepare(`
+    INSERT INTO promo_codes (code, amount_cents, max_redemptions, active, created_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(code) DO UPDATE SET
+      amount_cents = excluded.amount_cents,
+      max_redemptions = excluded.max_redemptions,
+      active = excluded.active
+  `).run(normalized, amountCents, maxRedemptions, active ? 1 : 0, Date.now());
+  return findPromo(normalized);
+}
+
+export function listPromos(){
+  return db.prepare(`SELECT * FROM promo_codes ORDER BY created_at DESC`).all();
 }
 
 /* ── Feeds ────────────────────────────────────────────────────── */
