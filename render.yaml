@@ -21,6 +21,9 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /healthz
+    # Explicit, so a cancelled build cannot silently leave the service
+    # pinned to an old commit — which is exactly what happened once.
+    autoDeploy: true
 
     disk:
       name: outbid-data
