@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as store from './db.js';
 import { parseTarget, fetchMetadata, InputError } from './metadata.js';
-import { CATEGORIES, CATEGORY_BY_SLUG, classify } from './categories.js';
+import { categoriesFor, categoryMapFor, classify } from './categories.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
@@ -33,7 +33,7 @@ function listingView(row, rank){
     claimPrice: row.amount_cents / 100 + 1,
     clicks: row.clicks,
     category: row.category || 'other',
-    categoryName: CATEGORY_BY_SLUG.get(row.category)?.name || 'Everything Else',
+    categoryName: categoryMapFor(row.brand).get(row.category)?.name || 'Everything Else',
     since: row.paid_at
   };
 }
@@ -127,11 +127,11 @@ function parseAmount(raw){
 }
 
 /* ── Handlers ─────────────────────────────────────────────────── */
-function buildBoard(page, category = null){
-  const total = store.boardCount(category);
+function buildBoard(brand, page, category = null){
+  const total = store.boardCount(brand, category);
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const offset = (Math.min(page, pages) - 1) * PER_PAGE;
-  const rows = store.boardPage(PER_PAGE, offset, category);
+  const rows = store.boardPage(brand, PER_PAGE, offset, category);
 
   return {
     page: Math.min(page, pages),
@@ -139,7 +139,7 @@ function buildBoard(page, category = null){
     total,
     perPage: PER_PAGE,
     category,
-    categoryName: category ? (CATEGORY_BY_SLUG.get(category)?.name || null) : null,
+    categoryName: category ? (categoryMapFor(brand).get(category)?.name || null) : null,
     items: rows.map((row, i) => listingView(row, offset + i + 1))
   };
 }
@@ -150,14 +150,14 @@ export const routes = {
     const page = Math.max(1, Number(ctx.query.get('page')) || 1);
     const raw = ctx.query.get('category');
     // An unknown slug filters to nothing rather than silently showing all.
-    const category = raw ? (CATEGORY_BY_SLUG.has(raw) ? raw : '__none__') : null;
-    return cached(`board:${page}:${category || 'all'}`, () => buildBoard(page, category));
+    const category = raw ? (categoryMapFor(ctx.brand).has(raw) ? raw : '__none__') : null;
+    return cached(`board:${ctx.brand}:${page}:${category || 'all'}`, () => buildBoard(ctx.brand, page, category));
   },
 
-  'GET /api/categories': () => cached('categories', () => {
-    const counts = store.categoryCounts();
+  'GET /api/categories': (ctx) => cached(`categories:${ctx.brand}`, () => {
+    const counts = store.categoryCounts(ctx.brand);
     return {
-      items: CATEGORIES.map(c => {
+      items: categoriesFor(ctx.brand).map(c => {
         const hit = counts.get(c.slug);
         return {
           slug: c.slug,
@@ -169,14 +169,14 @@ export const routes = {
     };
   }),
 
-  'GET /api/trending': () => cached('trending', () => ({
-    items: store.trending().map(r => ({
+  'GET /api/trending': (ctx) => cached(`trending:${ctx.brand}`, () => ({
+    items: store.trending(ctx.brand).map(r => ({
       id: r.id, target: r.target, title: r.title, icon: r.icon_url, perHour: r.hits
     }))
   })),
 
-  'GET /api/activity': () => cached('activity', () => ({
-    items: store.recentActivity().map(r => ({
+  'GET /api/activity': (ctx) => cached(`activity:${ctx.brand}`, () => ({
+    items: store.recentActivity(ctx.brand).map(r => ({
       id: r.id,
       target: r.target,
       icon: r.icon_url,
@@ -189,18 +189,18 @@ export const routes = {
   'GET /api/stats': (ctx) => {
     store.touchVisitor(ctx.visitorId);
     const { total, online } = store.visitorStats();
-    const top = store.topAmount();
+    const top = store.topAmount(ctx.brand);
     return {
       online,
       visitors: total,
-      revenue: store.revenueCents() / 100,
+      revenue: store.revenueCents(ctx.brand) / 100,
       launchedAt: store.launchedAt,
       topBid: top / 100,
       // The rules say a rank costs $1 more than the listing holding it, so
       // the headline price must agree rather than quoting a $5 step.
       nextBid: top ? top / 100 + 1 : MIN_BID_CENTS / 100,
       minBid: MIN_BID_CENTS / 100,
-      listings: store.boardCount(),
+      listings: store.boardCount(ctx.brand),
       payments: stripeEnabled ? 'stripe' : 'dev'
     };
   },
@@ -317,11 +317,11 @@ export const routes = {
     const cents = parseAmount(ctx.body?.amount);
     const meta = await fetchMetadata(parsed);
     const listing = store.upsertListing({
-      kind: parsed.kind, target: parsed.target, url: parsed.url,
+      brand: ctx.brand, kind: parsed.kind, target: parsed.target, url: parsed.url,
       title: meta.title, description: meta.description, iconUrl: meta.iconUrl,
-      category: CATEGORY_BY_SLUG.has(ctx.body?.category)
+      category: categoryMapFor(ctx.brand).has(ctx.body?.category)
         ? ctx.body.category
-        : classify({ target: parsed.target, kind: parsed.kind,
+        : classify({ target: parsed.target, kind: parsed.kind, brand: ctx.brand,
                      title: meta.title, description: meta.description })
     });
 
@@ -348,7 +348,7 @@ export const routes = {
   'POST /api/admin/listing/delete': (ctx) => {
     requireAdmin(ctx);
     const target = String(ctx.body?.target || '').trim().toLowerCase();
-    const listing = store.findListing(target);
+    const listing = store.findListing(ctx.brand, target);
     if (!listing) throw new HttpError(404, 'No listing with that target.');
     store.deleteListing(listing.id);
     invalidate();
@@ -360,10 +360,11 @@ export const routes = {
   'POST /api/admin/category': (ctx) => {
     requireAdmin(ctx);
     const { target, category } = ctx.body || {};
-    if (!CATEGORY_BY_SLUG.has(category)){
-      throw new HttpError(400, `Unknown category. One of: ${CATEGORIES.map(c => c.slug).join(', ')}`);
+    if (!categoryMapFor(ctx.brand).has(category)){
+      throw new HttpError(400,
+        `Unknown category. One of: ${categoriesFor(ctx.brand).map(c => c.slug).join(', ')}`);
     }
-    const listing = store.findListing(String(target || '').toLowerCase());
+    const listing = store.findListing(ctx.brand, String(target || '').toLowerCase());
     if (!listing) throw new HttpError(404, 'No listing with that target.');
     store.setCategory(listing.id, category);
     invalidate();
@@ -384,7 +385,7 @@ export const routes = {
     }
 
     const meta = await fetchMetadata(parsed);
-    const existing = store.findListing(parsed.target);
+    const existing = store.findListing(ctx.brand, parsed.target);
     const current = existing ? store.highestPaidBid(existing.id) : 0;
 
     const result = {
@@ -397,7 +398,7 @@ export const routes = {
       // What the classifier guessed — the form pre-selects it, and the
       // bidder can override it before paying.
       category: classify({
-        target: parsed.target, kind: parsed.kind,
+        target: parsed.target, kind: parsed.kind, brand: ctx.brand,
         title: meta.title, description: meta.description
       }),
       alreadyListed: Boolean(current),
@@ -408,7 +409,7 @@ export const routes = {
     if (ctx.body.amount !== undefined && ctx.body.amount !== ''){
       const cents = parseAmount(ctx.body.amount);
       result.amount = cents / 100;
-      result.rank = store.rankForAmount(cents, existing?.id ?? null);
+      result.rank = store.rankForAmount(ctx.brand, cents, existing?.id ?? null);
       result.beatsCurrent = cents > current;
     }
     return result;
@@ -429,7 +430,7 @@ export const routes = {
     }
 
     const cents = parseAmount(ctx.body.amount);
-    const existing = store.findListing(parsed.target);
+    const existing = store.findListing(ctx.brand, parsed.target);
     const current = existing ? store.highestPaidBid(existing.id) : 0;
 
 
@@ -441,6 +442,7 @@ export const routes = {
 
     const meta = await fetchMetadata(parsed);
     const listing = store.upsertListing({
+      brand: ctx.brand,
       kind: parsed.kind,
       target: parsed.target,
       url: parsed.url,
@@ -450,15 +452,15 @@ export const routes = {
       /* A category chosen in the form wins; otherwise fall back to the
          classifier. An unknown slug is ignored rather than rejected — a bad
          dropdown value should never block a payment. */
-      category: CATEGORY_BY_SLUG.has(ctx.body.category)
+      category: categoryMapFor(ctx.brand).has(ctx.body.category)
         ? ctx.body.category
         : classify({
-            target: parsed.target, kind: parsed.kind,
+            target: parsed.target, kind: parsed.kind, brand: ctx.brand,
             title: meta.title, description: meta.description
           })
     });
 
-    const rank = store.rankForAmount(cents, listing.id);
+    const rank = store.rankForAmount(ctx.brand, cents, listing.id);
     const bidRef = randomUUID();
 
     if (!stripeEnabled){

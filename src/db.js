@@ -130,6 +130,49 @@ export const launchedAt = Number(
   db.prepare(`SELECT value FROM meta WHERE key = 'launched_at'`).get().value
 );
 
+/* ── Per-brand boards ─────────────────────────────────────────────
+   Each brand is its own leaderboard over shared infrastructure, so the
+   same handle can be listed on two of them independently. `target` was
+   globally unique, which would have made that impossible — SQLite cannot
+   drop an inline constraint, so the table is rebuilt once. */
+const hasBrand = db.prepare(`PRAGMA table_info(listings)`).all().some(c => c.name === 'brand');
+if (!hasBrand){
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(`
+      CREATE TABLE listings_new (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        brand        TEXT NOT NULL DEFAULT 'outbid',
+        kind         TEXT NOT NULL CHECK (kind IN ('url','handle')),
+        target       TEXT NOT NULL,
+        url          TEXT NOT NULL,
+        title        TEXT NOT NULL,
+        description  TEXT NOT NULL DEFAULT '',
+        icon_url     TEXT,
+        category     TEXT NOT NULL DEFAULT 'other',
+        clicks_total INTEGER NOT NULL DEFAULT 0,
+        created_at   INTEGER NOT NULL,
+        UNIQUE (brand, target)
+      );
+
+      INSERT INTO listings_new
+        (id, brand, kind, target, url, title, description, icon_url, category, clicks_total, created_at)
+      SELECT id, 'outbid', kind, target, url, title, description, icon_url,
+             COALESCE(category,'other'), COALESCE(clicks_total,0), created_at
+      FROM listings;
+
+      DROP TABLE listings;
+      ALTER TABLE listings_new RENAME TO listings;
+    `);
+    db.exec('COMMIT');
+  } catch (err){
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand ON listings(brand)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand_cat ON listings(brand, category)`);
+
 /* ── Core query: the live board ──────────────────────────────────
    A listing's standing price is its highest *paid* bid. Ties break by
    whoever got there first, so an equal bid can never displace a sitting
@@ -157,9 +200,9 @@ const BOARD_SELECT = `
   ) b ON b.listing_id = l.id
 `;
 
-export function boardPage(limit, offset, category = null){
-  const filter = category ? `WHERE l.category = ?` : '';
-  const args = category ? [category, limit, offset] : [limit, offset];
+export function boardPage(brand, limit, offset, category = null){
+  const filter = category ? `WHERE l.brand = ? AND l.category = ?` : `WHERE l.brand = ?`;
+  const args = category ? [brand, category, limit, offset] : [brand, limit, offset];
   return db.prepare(`
     ${BOARD_SELECT}
     ${filter}
@@ -168,28 +211,38 @@ export function boardPage(limit, offset, category = null){
   `).all(...args);
 }
 
-export function boardCount(category = null){
-  if (!category){
+export function boardCount(brand = null, category = null){
+  /* No brand means every board — used by the health check and boot log,
+     which report the whole instance rather than one leaderboard. */
+  if (!brand){
     return db.prepare(`
       SELECT COUNT(DISTINCT listing_id) AS n FROM bids WHERE status = 'paid'
     `).get().n;
   }
+  if (!category){
+    return db.prepare(`
+      SELECT COUNT(DISTINCT b.listing_id) AS n
+      FROM bids b JOIN listings l ON l.id = b.listing_id
+      WHERE b.status = 'paid' AND l.brand = ?
+    `).get(brand).n;
+  }
   return db.prepare(`
     SELECT COUNT(DISTINCT b.listing_id) AS n
     FROM bids b JOIN listings l ON l.id = b.listing_id
-    WHERE b.status = 'paid' AND l.category = ?
-  `).get(category).n;
+    WHERE b.status = 'paid' AND l.brand = ? AND l.category = ?
+  `).get(brand, category).n;
 }
 
 /* Only categories that actually have paid listings are worth showing a
    count for; the page still lists the empty ones, at zero. */
-export function categoryCounts(){
+export function categoryCounts(brand){
   const rows = db.prepare(`
     SELECT l.category, COUNT(DISTINCT b.listing_id) AS n,
            MAX(b.amount_cents) AS top_cents
     FROM listings l JOIN bids b ON b.listing_id = l.id AND b.status = 'paid'
+    WHERE l.brand = ?
     GROUP BY l.category
-  `).all();
+  `).all(brand);
   return new Map(rows.map(r => [r.category, { count: r.n, topCents: r.top_cents }]));
 }
 
@@ -206,37 +259,42 @@ export function setCategory(listingId, category){
   return getListing(listingId);
 }
 
-export function topAmount(){
+export function topAmount(brand){
   const row = db.prepare(`
-    SELECT MAX(amount_cents) AS n FROM bids WHERE status = 'paid'
-  `).get();
+    SELECT MAX(b.amount_cents) AS n
+    FROM bids b JOIN listings l ON l.id = b.listing_id
+    WHERE b.status = 'paid' AND l.brand = ?
+  `).get(brand);
   return row.n || 0;
 }
 
 /* Rank a hypothetical amount would take: one past everyone who beats it. */
-export function rankForAmount(amountCents, excludeListingId = null){
+export function rankForAmount(brand, amountCents, excludeListingId = null){
   const row = db.prepare(`
     SELECT COUNT(*) AS n FROM (
-      SELECT listing_id, MAX(amount_cents) AS amount_cents
-      FROM bids WHERE status = 'paid'
-      GROUP BY listing_id
+      SELECT b.listing_id, MAX(b.amount_cents) AS amount_cents
+      FROM bids b JOIN listings l ON l.id = b.listing_id
+      WHERE b.status = 'paid' AND l.brand = ?
+      GROUP BY b.listing_id
     )
     WHERE amount_cents >= ? AND listing_id IS NOT ?
-  `).get(amountCents, excludeListingId);
+  `).get(brand, amountCents, excludeListingId);
   return row.n + 1;
 }
 
 export function listingRank(listingId){
   const row = db.prepare(`
     SELECT COUNT(*) AS n FROM (
-      SELECT listing_id, MAX(amount_cents) AS amount_cents, MIN(paid_at) AS paid_at
-      FROM bids WHERE status = 'paid'
-      GROUP BY listing_id
+      SELECT b.listing_id, MAX(b.amount_cents) AS amount_cents
+      FROM bids b JOIN listings l ON l.id = b.listing_id
+      WHERE b.status = 'paid'
+        AND l.brand = (SELECT brand FROM listings WHERE id = ?)
+      GROUP BY b.listing_id
     ) x
     WHERE x.amount_cents > (
       SELECT MAX(amount_cents) FROM bids WHERE status='paid' AND listing_id = ?
     )
-  `).get(listingId);
+  `).get(listingId, listingId);
   return row.n + 1;
 }
 
@@ -252,16 +310,16 @@ export function setMeta(key, value){
 }
 
 /* ── Listings ─────────────────────────────────────────────────── */
-export function findListing(target){
-  return db.prepare(`SELECT * FROM listings WHERE target = ?`).get(target);
+export function findListing(brand, target){
+  return db.prepare(`SELECT * FROM listings WHERE brand = ? AND target = ?`).get(brand, target);
 }
 
 export function getListing(id){
   return db.prepare(`SELECT * FROM listings WHERE id = ?`).get(id);
 }
 
-export function upsertListing({ kind, target, url, title, description, iconUrl, category }){
-  const existing = findListing(target);
+export function upsertListing({ brand, kind, target, url, title, description, iconUrl, category }){
+  const existing = findListing(brand, target);
   if (existing){
     /* Refresh metadata — the product page may have changed since the last
        bid. The category is left alone: an owner may have had it corrected
@@ -273,9 +331,9 @@ export function upsertListing({ kind, target, url, title, description, iconUrl, 
     return getListing(existing.id);
   }
   const info = db.prepare(`
-    INSERT INTO listings (kind, target, url, title, description, icon_url, category, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(kind, target, url, title, description, iconUrl ?? null, category || 'other', Date.now());
+    INSERT INTO listings (brand, kind, target, url, title, description, icon_url, category, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(brand, kind, target, url, title, description, iconUrl ?? null, category || 'other', Date.now());
   return getListing(Number(info.lastInsertRowid));
 }
 
@@ -434,26 +492,26 @@ export function listPromos(){
 }
 
 /* ── Feeds ────────────────────────────────────────────────────── */
-export function recentActivity(limit = 5){
+export function recentActivity(brand, limit = 5){
   return db.prepare(`
     SELECT l.id, l.target, l.title, l.icon_url,
            b.amount_cents, b.amount_paid_cents, b.paid_at
     FROM bids b JOIN listings l ON l.id = b.listing_id
-    WHERE b.status = 'paid'
+    WHERE b.status = 'paid' AND l.brand = ?
     ORDER BY b.paid_at DESC
     LIMIT ?
-  `).all(limit);
+  `).all(brand, limit);
 }
 
-export function trending(limit = 5, windowMs = 3600_000){
+export function trending(brand, limit = 5, windowMs = 3600_000){
   return db.prepare(`
     SELECT l.id, l.target, l.title, l.icon_url, COUNT(c.id) AS hits
     FROM clicks c JOIN listings l ON l.id = c.listing_id
-    WHERE c.created_at > ?
+    WHERE c.created_at > ? AND l.brand = ?
     GROUP BY l.id
     ORDER BY hits DESC
     LIMIT ?
-  `).all(Date.now() - windowMs, limit);
+  `).all(Date.now() - windowMs, brand, limit);
 }
 
 const insertClick = db.prepare(`INSERT INTO clicks (listing_id, created_at) VALUES (?, ?)`);
@@ -491,9 +549,16 @@ export function visitorStats(onlineWindowMs = 120_000){
    $5 but was paid at $0, and counting the bid would overstate revenue.
    amount_paid_cents is null for bids taken before it was recorded, so fall
    back to the bid amount for those. */
-export function revenueCents(){
+export function revenueCents(brand = null){
+  if (!brand){
+    return db.prepare(`
+      SELECT COALESCE(SUM(COALESCE(amount_paid_cents, amount_cents)), 0) AS n
+      FROM bids WHERE status = 'paid'
+    `).get().n;
+  }
   return db.prepare(`
-    SELECT COALESCE(SUM(COALESCE(amount_paid_cents, amount_cents)), 0) AS n
-    FROM bids WHERE status = 'paid'
-  `).get().n;
+    SELECT COALESCE(SUM(COALESCE(b.amount_paid_cents, b.amount_cents)), 0) AS n
+    FROM bids b JOIN listings l ON l.id = b.listing_id
+    WHERE b.status = 'paid' AND l.brand = ?
+  `).get(brand).n;
 }

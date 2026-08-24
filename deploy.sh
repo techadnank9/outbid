@@ -35,7 +35,7 @@ case "$TARGET" in
     PROJECT=socialriselol
     DATAFAST_WEBSITE_ID="${SOCIALRISE_DATAFAST_WEBSITE_ID:-}"
     DATAFAST_DOMAIN=socialriselol.web.app
-    DATAFAST_SHARE_URL="${SOCIALRISE_DATAFAST_SHARE_URL:-}"
+    DATAFAST_SHARE_URL="${SOCIALRISE_DATAFAST_SHARE_URL:-https://datafa.st/share/6a8cc18a5f290e50854581f3}"
     ;;
   *)
     echo "Unknown target '$TARGET'. Use: outbid | dethrone | socialrise" >&2

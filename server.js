@@ -19,6 +19,21 @@ const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0
    customer back to the wrong site after paying. Use the origin the request
    actually came from — but only if it is on the allow-list, so the redirect
    target can never be attacker-controlled. */
+/* Each front-end is its own leaderboard. The brand comes from the host the
+   request arrived on, so one API serves all of them without a per-brand
+   deployment. Unknown hosts fall back to the default board. */
+const BRAND_HOSTS = (process.env.BRAND_HOSTS || 'socialrise:socialrise,dethrone:dethrone')
+  .split(',').map(p => p.trim().split(':')).filter(p => p.length === 2);
+const DEFAULT_BRAND = process.env.DEFAULT_BRAND || 'outbid';
+
+function brandFor(req){
+  const host = (req.headers.origin || req.headers.referer || req.headers.host || '').toLowerCase();
+  for (const [brand, needle] of BRAND_HOSTS){
+    if (host.includes(needle)) return brand;
+  }
+  return DEFAULT_BRAND;
+}
+
 function checkoutOrigin(req){
   const candidate = (req.headers.origin
     || (req.headers.referer ? new URL(req.headers.referer).origin : '') || '')
@@ -261,6 +276,7 @@ const server = createServer(async (req, res) => {
         ip: (TRUST_PROXY && req.headers['x-forwarded-for']?.split(',')[0].trim())
             || req.socket.remoteAddress,
         visitorId: visitorFrom(req, res),
+        brand: brandFor(req),
         authorization: req.headers.authorization || '',
         body: {}
       };

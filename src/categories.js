@@ -6,6 +6,64 @@
    same listing always lands in the same place. A listing can be moved by
    hand afterwards through the admin endpoint. */
 
+/* Two boards, two vocabularies. Outbid lists products, so its categories
+   describe software. SocialRise lists people, so its categories describe
+   what someone makes — which is what a viewer actually browses by. */
+export const CREATOR_CATEGORIES = [
+  { slug: 'health',        name: 'Health & Fitness' },
+  { slug: 'wellness',      name: 'Wellness & Mindset' },
+  { slug: 'lifestyle',     name: 'Lifestyle & Vlogs' },
+  { slug: 'ai-tech',       name: 'AI & Tech' },
+  { slug: 'beauty',        name: 'Beauty & Fashion' },
+  { slug: 'food',          name: 'Food & Cooking' },
+  { slug: 'travel',        name: 'Travel & Adventure' },
+  { slug: 'gaming',        name: 'Gaming & Esports' },
+  { slug: 'music',         name: 'Music & Audio' },
+  { slug: 'comedy',        name: 'Comedy & Entertainment' },
+  { slug: 'education',     name: 'Education & Explainers' },
+  { slug: 'business',      name: 'Business & Money' },
+  { slug: 'art',           name: 'Art & Design' },
+  { slug: 'sports',        name: 'Sports & Athletes' },
+  { slug: 'film',          name: 'Film & Photography' },
+  { slug: 'science',       name: 'Science & Space' },
+  { slug: 'news',          name: 'News & Commentary' },
+  { slug: 'parenting',     name: 'Family & Parenting' },
+  { slug: 'pets',          name: 'Pets & Animals' },
+  { slug: 'cars',          name: 'Cars & Motors' },
+  { slug: 'home',          name: 'Home & DIY' },
+  { slug: 'crypto',        name: 'Crypto & Investing' },
+  { slug: 'books',         name: 'Books & Writing' },
+  { slug: 'faith',         name: 'Faith & Culture' },
+  { slug: 'other',         name: 'Everything Else' }
+];
+
+const CREATOR_SIGNALS = {
+  health:    ['fitness', 'workout', 'gym', 'training', 'coach', 'nutrition', 'muscle', 'run', 'yoga', 'pilates', 'weight loss'],
+  wellness:  ['wellness', 'mindset', 'meditation', 'mental health', 'therapy', 'self care', 'healing', 'mindful', 'journal', 'sleep'],
+  lifestyle: ['lifestyle', 'vlog', 'daily', 'day in my life', 'routine', 'minimalism', 'productivity', 'life'],
+  'ai-tech': ['ai', 'artificial intelligence', 'tech', 'technology', 'developer', 'coding', 'software', 'startup', 'gadget', 'engineer', 'llm', 'automation'],
+  beauty:    ['beauty', 'makeup', 'skincare', 'fashion', 'style', 'outfit', 'hair', 'nails', 'grwm'],
+  food:      ['food', 'recipe', 'cooking', 'chef', 'baking', 'restaurant', 'kitchen', 'foodie', 'meal'],
+  travel:    ['travel', 'adventure', 'backpack', 'nomad', 'destination', 'wanderlust', 'trip', 'explore'],
+  gaming:    ['gaming', 'gamer', 'esports', 'twitch', 'stream', 'speedrun', 'minecraft', 'fortnite', 'valorant', 'playthrough'],
+  music:     ['music', 'musician', 'singer', 'producer', 'beats', 'guitar', 'piano', 'dj', 'rapper', 'songwriter'],
+  comedy:    ['comedy', 'comedian', 'funny', 'sketch', 'meme', 'humor', 'standup', 'entertainment'],
+  education: ['education', 'teacher', 'tutorial', 'explain', 'learn', 'study', 'course', 'lecture', 'exam'],
+  business:  ['business', 'entrepreneur', 'founder', 'marketing', 'sales', 'money', 'finance', 'ecommerce', 'side hustle', 'agency'],
+  art:       ['art', 'artist', 'illustration', 'design', 'drawing', 'painting', 'animation', 'sculpture', 'creative'],
+  sports:    ['sports', 'athlete', 'football', 'soccer', 'basketball', 'nba', 'nfl', 'boxing', 'mma', 'cricket', 'tennis'],
+  film:      ['film', 'photography', 'photographer', 'filmmaker', 'cinema', 'camera', 'video', 'director', 'editing'],
+  science:   ['science', 'space', 'astronomy', 'physics', 'biology', 'nasa', 'research', 'experiment', 'nature'],
+  news:      ['news', 'journalist', 'politics', 'commentary', 'analysis', 'reporter', 'current affairs', 'podcast'],
+  parenting: ['parenting', 'mom', 'dad', 'family', 'baby', 'kids', 'toddler', 'pregnancy', 'motherhood'],
+  pets:      ['pet', 'dog', 'cat', 'animal', 'puppy', 'kitten', 'wildlife', 'rescue'],
+  cars:      ['car', 'cars', 'automotive', 'motor', 'racing', 'drive', 'ev', 'garage', 'motorcycle'],
+  home:      ['home', 'diy', 'interior', 'renovation', 'garden', 'decor', 'woodworking', 'build'],
+  crypto:    ['crypto', 'bitcoin', 'trading', 'investing', 'stocks', 'web3', 'nft', 'markets', 'portfolio'],
+  books:     ['book', 'reading', 'author', 'writing', 'novel', 'poetry', 'booktok', 'literature'],
+  faith:     ['faith', 'christian', 'muslim', 'islam', 'bible', 'quran', 'spiritual', 'church', 'culture']
+};
+
 export const CATEGORIES = [
   { slug: 'ai-agents',      name: 'AI Agents & Automation' },
   { slug: 'ai-media',       name: 'AI Image, Video & Audio' },
@@ -34,10 +92,23 @@ export const CATEGORIES = [
   { slug: 'other',          name: 'Everything Else' }
 ];
 
+const SETS = {
+  outbid: { list: CATEGORIES, signals: null },        // signals filled in below
+  socialrise: { list: CREATOR_CATEGORIES, signals: CREATOR_SIGNALS }
+};
+
+export function categoriesFor(brand){
+  return (SETS[brand] || SETS.outbid).list;
+}
+
+export function categoryMapFor(brand){
+  return new Map(categoriesFor(brand).map(c => [c.slug, c]));
+}
+
 export const CATEGORY_BY_SLUG = new Map(CATEGORIES.map(c => [c.slug, c]));
 
-export function categoryName(slug){
-  return CATEGORY_BY_SLUG.get(slug)?.name || 'Everything Else';
+export function categoryName(slug, brand = 'outbid'){
+  return categoryMapFor(brand).get(slug)?.name || 'Everything Else';
 }
 
 /* Weighted signals. Domain matches count double — a .dev or a name ending
@@ -96,9 +167,11 @@ function domainMatches(domain, term){
     .some(tok => tok === collapsed || tok === collapsed + 's');
 }
 
-export function classify({ target, kind, title = '', description = '' }){
-  // An @handle is a person, whatever their bio happens to mention.
-  if (kind === 'handle') return 'profiles';
+export function classify({ target, kind, title = '', description = '', brand = 'outbid' }){
+  /* On a board of products, an @handle is simply a person and there is no
+     more to say. On a creator board every listing is a person, so the
+     question is what they make — and the bio is the evidence. */
+  if (kind === 'handle' && brand !== 'socialrise') return 'profiles';
 
   /* A word in the title is far stronger evidence than the same word buried
      in a paragraph — "Agentic Infrastructure" in a title says what the
@@ -107,11 +180,14 @@ export function classify({ target, kind, title = '', description = '' }){
   const bodyText = String(description).toLowerCase();
   const domain = String(target || '').toLowerCase();
 
+  const set = SETS[brand] || SETS.outbid;
+  const signals = set.signals || SIGNALS;
+
   let best = null;
   let bestScore = 0;
 
-  for (const { slug } of CATEGORIES){
-    const terms = SIGNALS[slug];
+  for (const { slug } of set.list){
+    const terms = signals[slug];
     if (!terms?.length) continue;
 
     let score = 0;
