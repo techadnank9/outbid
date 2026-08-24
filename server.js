@@ -47,10 +47,22 @@ function checkoutOrigin(req){
 const TRUST_PROXY = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
 const SECURE_COOKIES = process.env.NODE_ENV === 'production';
 
-/* When the frontend is hosted on a different origin (e.g. Firebase Hosting)
-   the API must opt that origin in explicitly. Empty = same-origin only. */
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
-  .split(',').map(o => o.trim().replace(/\/$/, '')).filter(Boolean);
+/* The front-ends this API exists to serve. Keeping the list in code beside
+   the brand routing means adding a board is one deploy rather than a
+   deploy plus a dashboard edit that is easy to forget — which is exactly
+   how SocialRise shipped unable to call its own API.
+   ALLOWED_ORIGINS still adds to this for anything not listed here. */
+const FIREBASE_PROJECTS = (process.env.BRAND_PROJECTS || 'outbidloll,dethronelol,socialriselol')
+  .split(',').map(p => p.trim()).filter(Boolean);
+
+const ALLOWED_ORIGINS = [
+  ...FIREBASE_PROJECTS.flatMap(p => [
+    `https://${p}.web.app`,
+    `https://${p}.firebaseapp.com`
+  ]),
+  ...(process.env.ALLOWED_ORIGINS || '')
+    .split(',').map(o => o.trim().replace(/\/$/, '')).filter(Boolean)
+];
 
 function corsHeaders(req){
   const origin = (req.headers.origin || '').replace(/\/$/, '');

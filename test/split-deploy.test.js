@@ -119,3 +119,23 @@ describe('multi-domain checkout redirect', () => {
       'an unlisted origin must not become a redirect target');
   });
 });
+
+describe('front-ends are allowed without a dashboard edit', () => {
+  test('every known board origin is allowed by default', async () => {
+    for (const origin of [
+      'https://socialriselol.web.app',
+      'https://socialriselol.firebaseapp.com',
+      'https://outbidloll.web.app',
+      'https://dethronelol.web.app'
+    ]){
+      const res = await fetch(BASE + '/api/board', { headers: { origin } });
+      assert.equal(res.headers.get('access-control-allow-origin'), origin,
+        `${origin} must be allowed without configuration`);
+    }
+  });
+
+  test('an unrelated origin is still refused', async () => {
+    const res = await fetch(BASE + '/api/board', { headers: { origin: 'https://evil.example' } });
+    assert.equal(res.headers.get('access-control-allow-origin'), null);
+  });
+});
