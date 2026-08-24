@@ -137,6 +137,10 @@ export const launchedAt = Number(
    drop an inline constraint, so the table is rebuilt once. */
 const hasBrand = db.prepare(`PRAGMA table_info(listings)`).all().some(c => c.name === 'brand');
 if (!hasBrand){
+  /* bids.listing_id is ON DELETE CASCADE, so DROP TABLE listings deletes
+     every bid with it. Foreign keys must be off for the swap — and the
+     pragma is a no-op inside a transaction, so it has to be set first. */
+  db.exec('PRAGMA foreign_keys = OFF');
   db.exec('BEGIN IMMEDIATE');
   try {
     db.exec(`
@@ -164,10 +168,19 @@ if (!hasBrand){
       DROP TABLE listings;
       ALTER TABLE listings_new RENAME TO listings;
     `);
+    /* Refuse to finish if the swap cost us rows. */
+    const orphaned = db.prepare(`
+      SELECT COUNT(*) AS n FROM bids b
+      WHERE NOT EXISTS (SELECT 1 FROM listings l WHERE l.id = b.listing_id)
+    `).get().n;
+    if (orphaned > 0) throw new Error(`migration left ${orphaned} orphaned bids`);
+
     db.exec('COMMIT');
   } catch (err){
     db.exec('ROLLBACK');
     throw err;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
   }
 }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand ON listings(brand)`);

@@ -119,3 +119,41 @@ describe('per-brand bid floor', () => {
     assert.equal(res.status, 400);
   });
 });
+
+describe('the brand migration must not destroy data', () => {
+  test('bids survive the listings table rebuild', async () => {
+    // bids.listing_id is ON DELETE CASCADE, so dropping the old listings
+    // table during the rebuild deletes every bid unless foreign keys are
+    // disabled for the swap. This happened once in production.
+    const { DatabaseSync } = await import('node:sqlite');
+    const tmp = join(dir, 'migrate.db');
+    const db = new DatabaseSync(tmp);
+    db.exec('PRAGMA foreign_keys = ON');
+    db.exec(`CREATE TABLE listings(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL CHECK (kind IN ('url','handle')),
+      target TEXT NOT NULL UNIQUE, url TEXT NOT NULL, title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '', icon_url TEXT, created_at INTEGER NOT NULL)`);
+    db.exec(`CREATE TABLE bids(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL, status TEXT NOT NULL, provider TEXT,
+      session_id TEXT, created_at INTEGER NOT NULL, paid_at INTEGER)`);
+    db.exec(`INSERT INTO listings (kind,target,url,title,created_at)
+             VALUES ('url','keep.com','https://keep.com','Keep',1)`);
+    db.exec(`INSERT INTO bids (listing_id,amount_cents,status,provider,session_id,created_at,paid_at)
+             VALUES (1,900,'paid','stripe','s1',1,1)`);
+    db.close();
+
+    const prev = process.env.DB_PATH;
+    process.env.DB_PATH = tmp;
+    const store = await import(`../src/db.js?migrate=${Date.now()}`);
+    process.env.DB_PATH = prev;
+
+    assert.equal(store.boardCount('outbid'), 1, 'the listing survived');
+    assert.equal(
+      store.db.prepare('SELECT COUNT(*) AS n FROM bids').get().n, 1,
+      'its bid survived — a cascade here wipes the payment ledger'
+    );
+  });
+});
