@@ -8,9 +8,25 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createServer } from 'node:http';
+
+/* Ask the OS for a port nobody is using. */
+function freePort(){
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.on('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
 async function withServer(env, fn){
   const dir = mkdtempSync(join(tmpdir(), 'outbid-an-'));
-  const port = 4400 + Math.floor(Math.random() * 90);
+  // A random port collides when suites run in parallel, which made this
+  // file fail intermittently. Take the next free one instead.
+  const port = await freePort();
   const child = spawn(process.execPath, ['server.js'], {
     env: { ...process.env, PORT: String(port), DB_PATH: join(dir, 'a.db'), NODE_ENV: 'test', STRIPE_SECRET_KEY: '', ...env },
     stdio: ['ignore', 'pipe', 'pipe']

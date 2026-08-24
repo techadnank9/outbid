@@ -379,20 +379,47 @@ function renderTabs(){
   const ordered = [...categories].sort((a, b) =>
     b.listings - a.listings || a.name.localeCompare(b.name));
 
-  tabs.innerHTML =
-    `<button class="cat-tab${!state.category ? ' active' : ''}" data-slug="">
-       ${categoryIcon('__all')}All
-     </button>`
-    + ordered.map(c => `
-        <button class="cat-tab${state.category === c.slug ? ' active' : ''}" data-slug="${c.slug}">
-          ${categoryIcon(c.slug)}${escapeHtml(c.name)}${c.listings ? `<span class="cat-tab-count">${c.listings}</span>` : ''}
-        </button>`).join('');
+  const tabHtml = (c) => `
+    <button class="cat-tab${state.category === c.slug ? ' active' : ''}" data-slug="${c.slug}">
+      ${categoryIcon(c.slug)}${escapeHtml(c.name)}${c.listings ? `<span class="cat-tab-count">${c.listings}</span>` : ''}
+    </button>`;
 
-  const active = tabs.querySelector('.cat-tab.active');
-  if (active && state.category) active.scrollIntoView({ block: 'nearest', inline: 'center' });
+  const allTab = `<button class="cat-tab${!state.category ? ' active' : ''}" data-slug="">
+      ${categoryIcon('__all')}All
+    </button>`;
+
+  /* A short row of the busiest, with everything behind "More" — a
+     horizontal scroll hides most of the list, and the list is the point. */
+  const LEAD = 7;
+  const lead = ordered.slice(0, LEAD);
+  const activeIsHidden = state.category && !lead.some(c => c.slug === state.category);
+  const shown = activeIsHidden
+    ? [ordered.find(c => c.slug === state.category), ...lead.slice(0, LEAD - 1)]
+    : lead;
+
+  tabs.innerHTML = allTab + shown.filter(Boolean).map(tabHtml).join('');
+
+  const all = $('catAll');
+  if (all) all.innerHTML = allTab + ordered.map(tabHtml).join('');
 }
 
-$('categoryTabs')?.addEventListener('click', (e) => {
+$('catMore')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const panel = $('catAll');
+  panel.hidden = !panel.hidden;
+  $('catMore').setAttribute('aria-expanded', String(!panel.hidden));
+  $('catMore').classList.toggle('open', !panel.hidden);
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.cat-filter') && $('catAll') && !$('catAll').hidden){
+    $('catAll').hidden = true;
+    $('catMore')?.setAttribute('aria-expanded', 'false');
+    $('catMore')?.classList.remove('open');
+  }
+});
+
+function onCategoryClick(e){
   const btn = e.target.closest('.cat-tab');
   if (!btn) return;
   state.category = btn.dataset.slug || null;
@@ -405,7 +432,17 @@ $('categoryTabs')?.addEventListener('click', (e) => {
 
   renderTabs();
   loadBoard(1);
-});
+
+  const panel = $('catAll');
+  if (panel && !panel.hidden){
+    panel.hidden = true;
+    $('catMore')?.setAttribute('aria-expanded', 'false');
+    $('catMore')?.classList.remove('open');
+  }
+}
+
+$('categoryTabs')?.addEventListener('click', onCategoryClick);
+$('catAll')?.addEventListener('click', onCategoryClick);
 
 /* ── Stats ────────────────────────────────────────────────────── */
 async function loadStats(){

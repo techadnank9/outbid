@@ -66,7 +66,7 @@ function assemble(file){
   ));
 }
 
-for (const page of ['index.html', 'rules.html', 'about.html', 'categories.html']){
+for (const page of ['index.html', 'rules.html', 'about.html', 'categories.html', 'terms.html', 'privacy.html']){
   writeFileSync(join(OUT, page), assemble(page));
 }
 

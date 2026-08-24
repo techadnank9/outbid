@@ -164,7 +164,7 @@ describe('platform selection', () => {
     await post('/api/bid', { target: '@sam', amount: 4, platform: 'x' }, SOCIAL);
 
     const board = await get('/api/board', SOCIAL);
-    const sams = board.items.filter(i => i.target.startsWith('@sam'));
+    const sams = board.items.filter(i => i.key.startsWith('@sam'));
     assert.equal(sams.length, 2, '@sam on TikTok and @sam on X are different people');
     assert.deepEqual(
       sams.map(i => i.platformName).sort(),
@@ -179,8 +179,9 @@ describe('platform selection', () => {
     await post('/api/bid', { target: 'https://tiktok.com/@alex', amount: 7 }, SOCIAL);
 
     const board = await get('/api/board', SOCIAL);
-    assert.ok(board.items.find(i => i.target === '@jess:tiktok'));
-    assert.ok(board.items.find(i => i.target === '@alex:tiktok'));
+    assert.ok(board.items.find(i => i.key === '@jess:tiktok'));
+    assert.ok(board.items.find(i => i.key === '@alex:tiktok'));
+    assert.ok(board.items.find(i => i.target === '@jess'), 'shown as a person');
   });
 
   test('a pasted link resolves its own platform', async () => {
@@ -277,5 +278,28 @@ describe('creator input accepts what the form asks for', () => {
   test('dots and dashes are allowed in a handle', async () => {
     const res = await post('/api/preview', { target: '@some.user-1', platform: 'instagram' }, SOCIAL);
     assert.equal(res.status, 200);
+  });
+});
+
+describe('the storage key never reaches the page', () => {
+  test('a namespaced handle is shown without its platform suffix', async () => {
+    await post('/api/bid', { target: '@chef', amount: 3, platform: 'instagram' }, SOCIAL);
+    const board = await get('/api/board', SOCIAL);
+    const row = board.items.find(i => i.key === '@chef:instagram');
+    assert.ok(row, 'stored namespaced');
+    assert.equal(row.target, '@chef', 'displayed as a person, not a database key');
+    assert.equal(row.platformName, 'Instagram', 'the platform shows as a badge instead');
+  });
+
+  test('activity and trending use the display name too', async () => {
+    const activity = await get('/api/activity', SOCIAL);
+    assert.ok(activity.items.every(i => !i.target.includes(':')),
+      'no colon-suffixed keys in the activity feed');
+  });
+
+  test('a website listing is unaffected', async () => {
+    await post('/api/bid', { target: 'example.com', amount: 4 }, SOCIAL);
+    const board = await get('/api/board', SOCIAL);
+    assert.ok(board.items.find(i => i.target === 'example.com'));
   });
 });

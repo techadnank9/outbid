@@ -22,11 +22,19 @@ class HttpError extends Error {
 }
 
 /* ── Serialization ────────────────────────────────────────────── */
+/* Handles are stored namespaced by platform (@chef:instagram) so the same
+   name on two networks is two listings. That key is storage, not a label —
+   a person is shown as @chef with an Instagram badge beside them. */
+function displayName(target){
+  return String(target || '').replace(/:[a-z0-9]+$/i, '');
+}
+
 function listingView(row, rank){
   return {
     id: row.id,
     rank,
-    target: row.target,
+    target: displayName(row.target),
+    key: row.target,
     title: row.title,
     description: row.description,
     icon: row.icon_url,
@@ -186,14 +194,14 @@ export const routes = {
 
   'GET /api/trending': (ctx) => cached(`trending:${ctx.brand}`, () => ({
     items: store.trending(ctx.brand).map(r => ({
-      id: r.id, target: r.target, title: r.title, icon: r.icon_url, perHour: r.hits
+      id: r.id, target: displayName(r.target), title: r.title, icon: r.icon_url, perHour: r.hits
     }))
   })),
 
   'GET /api/activity': (ctx) => cached(`activity:${ctx.brand}`, () => ({
     items: store.recentActivity(ctx.brand).map(r => ({
       id: r.id,
-      target: r.target,
+      target: displayName(r.target),
       icon: r.icon_url,
       price: r.amount_cents / 100,
       rank: store.listingRank(r.id),
@@ -408,7 +416,8 @@ export const routes = {
     const current = existing ? store.highestPaidBid(existing.id) : 0;
 
     const result = {
-      target: parsed.target,
+      target: displayName(parsed.target),
+      key: parsed.target,
       kind: parsed.kind,
       url: parsed.url,
       platform: parsed.platform,
@@ -493,7 +502,7 @@ export const routes = {
         status: 'paid', sessionId: `dev_${bidRef}`, provider: 'dev'
       });
       broadcast('board', { reason: 'bid', target: listing.target, rank });
-      return { status: 'confirmed', rank, target: listing.target, amount: cents / 100 };
+      return { status: 'confirmed', rank, target: displayName(listing.target), amount: cents / 100 };
     }
 
     const session = await createCheckoutSession({
@@ -506,7 +515,7 @@ export const routes = {
 
     return {
       status: 'checkout', checkoutUrl: session.url, rank,
-      target: listing.target, promoOffered: promoAllowedFor(cents)
+      target: displayName(listing.target), promoOffered: promoAllowedFor(cents)
     };
   },
 
