@@ -100,7 +100,7 @@ describe('input validation', () => {
   test('rejects a malformed handle', async () => {
     const { status, body } = await post('/api/preview', { target: '@not a handle!' });
     assert.equal(status, 400);
-    assert.match(body.error, /letters, numbers and underscores/);
+    assert.match(body.error, /letters, numbers/);
   });
 
   test('rejects a bid under the floor', async () => {

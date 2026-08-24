@@ -27,6 +27,28 @@ window.CATEGORY_ICONS = {
   'domains':        '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 2.5 15.2 0 18M12 3c-2.5 2.8-2.5 15.2 0 18"/>',
   'profiles':       '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
   'other':          '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
+  /* Creator categories (SocialRise). Without these every creator category
+     fell back to the three-dot placeholder. */
+  'wellness':       '<path d="M12 3c-2.5 3-4 5.5-4 8a4 4 0 0 0 8 0c0-2.5-1.5-5-4-8Z"/><path d="M12 15v6M8.5 18.5h7"/>',
+  'lifestyle':      '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="12" r="3.2"/><path d="M17.5 7.5h.01"/>',
+  'ai-tech':        '<rect x="6.5" y="6.5" width="11" height="11" rx="2.6"/><path d="M9.5 2v3M14.5 2v3M9.5 19v3M14.5 19v3M2 9.5h3M2 14.5h3M19 9.5h3M19 14.5h3"/>',
+  'beauty':         '<path d="M8 3h8l-1 6H9Z"/><rect x="8.5" y="9" width="7" height="12" rx="2"/><path d="M9 14h6"/>',
+  'food':           '<path d="M6 2v9a3 3 0 0 0 6 0V2M9 11v11"/><path d="M17.5 2c-1.4 1.6-2 3.4-2 5.5 0 1.9.8 3 2 3.5V22"/>',
+  'gaming':         '<rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7.5 11v3M6 12.5h3M15.5 12h.01M18 14h.01"/>',
+  'music':          '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="17.5" cy="16" r="2.6"/>',
+  'comedy':         '<circle cx="12" cy="12" r="9.2"/><path d="M8 14.5s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5h.01M15 9.5h.01"/>',
+  'business':       '<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>',
+  'art':            '<circle cx="13.5" cy="6.5" r="1.2"/><circle cx="17.5" cy="10.5" r="1.2"/><circle cx="8.5" cy="7.5" r="1.2"/><circle cx="6.5" cy="12.5" r="1.2"/><path d="M12 2a10 10 0 1 0 0 20c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-5-4-9-9-9Z"/>',
+  'sports':         '<circle cx="12" cy="12" r="9.2"/><path d="M12 2.8c2.6 2.4 2.6 16 0 18.4M2.8 12c3.5-2.2 14.9-2.2 18.4 0"/>',
+  'film':           '<rect x="2.5" y="5.5" width="19" height="13" rx="2.4"/><path d="M7.5 5.5v13M16.5 5.5v13M2.5 12h19M2.5 8.7h5M2.5 15.3h5M16.5 8.7h5M16.5 15.3h5"/>',
+  'science':        '<path d="M9 2v6.5L4.5 18a2.5 2.5 0 0 0 2.2 3.7h10.6A2.5 2.5 0 0 0 19.5 18L15 8.5V2"/><path d="M8 2h8M7.5 14h9"/>',
+  'news':           '<rect x="2.5" y="5" width="15" height="15" rx="2"/><path d="M17.5 9h3a1 1 0 0 1 1 1v8a2 2 0 0 1-4 0Z"/><path d="M6 9h8M6 13h8M6 17h5"/>',
+  'parenting':      '<circle cx="8.5" cy="7" r="3"/><circle cx="16.5" cy="9" r="2.3"/><path d="M2.8 20a5.7 5.7 0 0 1 11.4 0M14.5 20a4 4 0 0 1 6.7-2.6"/>',
+  'pets':           '<circle cx="7" cy="9" r="2"/><circle cx="12" cy="6.5" r="2"/><circle cx="17" cy="9" r="2"/><path d="M12 12c-3 0-5.5 2.4-5.5 5A2.8 2.8 0 0 0 9.3 20c1 0 1.9-.5 2.7-.5s1.7.5 2.7.5a2.8 2.8 0 0 0 2.8-3c0-2.6-2.5-5-5.5-5Z"/>',
+  'cars':           '<path d="M4.5 15.5h15M6 15.5 7.6 9.4A2 2 0 0 1 9.5 8h5a2 2 0 0 1 1.9 1.4L18 15.5"/><rect x="2.5" y="15.5" width="19" height="4" rx="1.6"/><path d="M6.5 19.5v1.5M17.5 19.5v1.5"/>',
+  'home':           '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5h4v5"/>',
+  'books':          '<path d="M4 4.5A2 2 0 0 1 6 2.5h13v17H6a2 2 0 0 0-2 2Z"/><path d="M4 19.5h15"/>',
+  'faith':          '<path d="M12 2.5v19M6.5 8h11"/>',
   '__all':          '<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>'
 };
 

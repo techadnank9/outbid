@@ -256,3 +256,26 @@ describe('visitor counts are per board', () => {
     assert.equal(a1, a2, 'repeat visits do not inflate the count');
   });
 });
+
+describe('creator input accepts what the form asks for', () => {
+  test('a bare username works once a platform is chosen', async () => {
+    for (const platform of ['linkedin', 'tiktok', 'instagram', 'youtube']){
+      const res = await post('/api/preview', { target: 'iamadnank9', platform }, SOCIAL);
+      assert.equal(res.status, 200, `${platform} should accept a bare handle`);
+      const body = await res.json();
+      assert.equal(body.display, '@iamadnank9');
+      assert.equal(body.platform, platform);
+    }
+  });
+
+  test('without a platform, a bare word still asks for a link', async () => {
+    const res = await post('/api/preview', { target: 'iamadnank9' }, SOCIAL);
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).error, /profile link|pick a platform/i);
+  });
+
+  test('dots and dashes are allowed in a handle', async () => {
+    const res = await post('/api/preview', { target: '@some.user-1', platform: 'instagram' }, SOCIAL);
+    assert.equal(res.status, 200);
+  });
+});

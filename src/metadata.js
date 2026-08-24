@@ -35,10 +35,17 @@ export function parseTarget(raw, platform = null){
   if (!input) throw new InputError('Enter a product URL or @handle.');
   if (input.length > 400) throw new InputError('That is too long to be a URL or handle.');
 
-  if (input.startsWith('@')){
-    const handle = input.slice(1).trim();
-    if (!/^[A-Za-z0-9_]{1,30}$/.test(handle)){
-      throw new InputError('A handle can only use letters, numbers and underscores.');
+  /* With a platform chosen, a bare username is a handle — the picker
+     already said which network it belongs to. Requiring an @ here rejected
+     "iamadnank9" with "that does not look like a public website", which is
+     nonsense next to a dropdown reading LinkedIn. */
+  const looksLikeUrl = /^https?:\/\//i.test(input) || input.includes('.') || input.includes('/');
+  const namedPlatform = PLATFORM_BY_SLUG.has(platform) && platform !== 'web';
+
+  if (input.startsWith('@') || (namedPlatform && !looksLikeUrl)){
+    const handle = input.replace(/^@/, '').trim();
+    if (!/^[A-Za-z0-9_.-]{1,60}$/.test(handle)){
+      throw new InputError('A handle can only use letters, numbers, dots, dashes and underscores.');
     }
     /* A bare @handle says nothing about which network it is on, so the
        platform chosen in the form decides where it links. Handles are
@@ -64,7 +71,10 @@ export function parseTarget(raw, platform = null){
   if (url.protocol !== 'http:' && url.protocol !== 'https:'){
     throw new InputError('Only http and https URLs are supported.');
   }
-  if (!url.hostname.includes('.') || isBlockedHost(url.hostname)){
+  if (!url.hostname.includes('.')){
+    throw new InputError('Enter a profile link, or pick a platform and type the handle.');
+  }
+  if (isBlockedHost(url.hostname)){
     throw new InputError('That does not look like a public website.');
   }
 
