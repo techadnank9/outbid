@@ -211,17 +211,21 @@ describe('the categories page quotes the right floor', () => {
 });
 
 describe('each board reports its own launch date', () => {
-  test('a board that just opened is not two days old', async () => {
-    const before = Date.now() - 5000;
+  test('a board dates from its first listing, not the server boot', async () => {
+    // SocialRise has listings created during this run; its launch date must
+    // track those rather than whenever the instance happened to start.
     const s = await get('/api/stats', SOCIAL);
-    assert.ok(s.launchedAt >= before || s.launchedAt <= Date.now(),
-      'launch date is this board\'s, not the instance boot time');
+    const board = await get('/api/board', SOCIAL);
+    assert.ok(board.total > 0, 'precondition: the board has listings');
+    assert.ok(s.launchedAt <= Date.now(), 'not in the future');
+    assert.ok(Date.now() - s.launchedAt < 60_000,
+      'this board opened during this test run, so it cannot be days old');
   });
 
-  test('boards do not share a launch date', async () => {
-    const a = (await get('/api/stats', SOCIAL)).launchedAt;
-    const b = (await get('/api/stats', 'https://dethronelol.web.app')).launchedAt;
-    assert.equal(typeof a, 'number');
-    assert.equal(typeof b, 'number');
+  test('an untouched board does not inherit another board\'s age', async () => {
+    const social = (await get('/api/stats', SOCIAL)).launchedAt;
+    const dethrone = (await get('/api/stats', 'https://dethronelol.web.app')).launchedAt;
+    assert.ok(dethrone >= social,
+      'a board with no listings dates from when it was first asked about');
   });
 });
