@@ -229,3 +229,30 @@ describe('each board reports its own launch date', () => {
       'a board with no listings dates from when it was first asked about');
   });
 });
+
+describe('visitor counts are per board', () => {
+  test('a visitor on one board is not counted on another', async () => {
+    const id = '33333333-4444-5555-6666-777777777777';
+    const seen = (origin) => fetch(BASE + '/api/stats', {
+      headers: { origin, 'x-visitor-id': id }
+    }).then(r => r.json());
+
+    const before = (await seen('https://dethronelol.web.app')).visitors;
+    await seen(SOCIAL);
+    const after = (await seen('https://dethronelol.web.app')).visitors;
+
+    assert.equal(after, before,
+      'visiting SocialRise must not raise Dethrone\'s visitor count');
+  });
+
+  test('the same person counts once per board they visit', async () => {
+    const id = '88888888-9999-aaaa-bbbb-cccccccccccc';
+    const hit = (origin) => fetch(BASE + '/api/stats', {
+      headers: { origin, 'x-visitor-id': id }
+    }).then(r => r.json());
+
+    const a1 = (await hit(SOCIAL)).visitors;
+    const a2 = (await hit(SOCIAL)).visitors;
+    assert.equal(a1, a2, 'repeat visits do not inflate the count');
+  });
+});

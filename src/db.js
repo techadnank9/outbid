@@ -209,6 +209,34 @@ if (!hasBrand){
 if (!db.prepare(`PRAGMA table_info(listings)`).all().some(c => c.name === 'platform')){
   db.exec(`ALTER TABLE listings ADD COLUMN platform TEXT`);
 }
+/* visitors was keyed on visitor_id alone, so counts were global. */
+if (!db.prepare(`PRAGMA table_info(visitors)`).all().some(c => c.name === 'brand')){
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(`
+      CREATE TABLE visitors_new (
+        visitor_id  TEXT NOT NULL,
+        brand       TEXT NOT NULL DEFAULT 'outbid',
+        first_seen  INTEGER NOT NULL,
+        last_seen   INTEGER NOT NULL,
+        PRIMARY KEY (visitor_id, brand)
+      );
+      INSERT INTO visitors_new (visitor_id, brand, first_seen, last_seen)
+      SELECT visitor_id, 'outbid', first_seen, last_seen FROM visitors;
+      DROP TABLE visitors;
+      ALTER TABLE visitors_new RENAME TO visitors;
+    `);
+    db.exec('COMMIT');
+  } catch (err){
+    db.exec('ROLLBACK');
+    throw err;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+db.exec(`CREATE INDEX IF NOT EXISTS idx_visitors_brand ON visitors(brand, last_seen DESC)`);
+
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand ON listings(brand)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand_cat ON listings(brand, category)`);
 
@@ -572,19 +600,27 @@ export function recordClick(listingId){
   }
 }
 
-/* ── Visitors ─────────────────────────────────────────────────── */
-export function touchVisitor(visitorId){
+/* ── Visitors ───────────────────────────────────────────────────
+   Counted per board. Without this, a board reports every visitor the
+   server has ever seen — SocialRise claimed 84 visitors on the day it
+   launched, which were mostly Outbid's. One person visiting two boards is
+   a visitor to each, which is why the key is the pair. */
+export function touchVisitor(visitorId, brand = 'outbid'){
   const now = Date.now();
   db.prepare(`
-    INSERT INTO visitors (visitor_id, first_seen, last_seen) VALUES (?, ?, ?)
-    ON CONFLICT(visitor_id) DO UPDATE SET last_seen = excluded.last_seen
-  `).run(visitorId, now, now);
+    INSERT INTO visitors (visitor_id, brand, first_seen, last_seen) VALUES (?, ?, ?, ?)
+    ON CONFLICT(visitor_id, brand) DO UPDATE SET last_seen = excluded.last_seen
+  `).run(visitorId, brand, now, now);
 }
 
-export function visitorStats(onlineWindowMs = 120_000){
-  const total  = db.prepare(`SELECT COUNT(*) AS n FROM visitors`).get().n;
-  const online = db.prepare(`SELECT COUNT(*) AS n FROM visitors WHERE last_seen > ?`)
-    .get(Date.now() - onlineWindowMs).n;
+export function visitorStats(brand = null, onlineWindowMs = 120_000){
+  const where = brand ? `WHERE brand = ?` : '';
+  const args = brand ? [brand] : [];
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM visitors ${where}`).get(...args).n;
+  const online = db.prepare(`
+    SELECT COUNT(*) AS n FROM visitors
+    WHERE last_seen > ? ${brand ? 'AND brand = ?' : ''}
+  `).get(Date.now() - onlineWindowMs, ...args).n;
   return { total, online };
 }
 

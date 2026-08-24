@@ -202,8 +202,8 @@ export const routes = {
   })),
 
   'GET /api/stats': (ctx) => {
-    store.touchVisitor(ctx.visitorId);
-    const { total, online } = store.visitorStats();
+    store.touchVisitor(ctx.visitorId, ctx.brand);
+    const { total, online } = store.visitorStats(ctx.brand);
     const top = store.topAmount(ctx.brand);
     return {
       online,
