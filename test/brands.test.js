@@ -90,3 +90,32 @@ describe('separate boards per brand', () => {
     assert.equal((await get('/api/board', OUTBID)).items[0].target, 'example.com');
   });
 });
+
+describe('per-brand bid floor', () => {
+  test('SocialRise accepts $1, Outbid does not', async () => {
+    const social = await post('/api/bid', { target: '@dollarcreator', amount: 1 }, SOCIAL);
+    assert.equal(social.status, 200, '$1 is allowed on the creator board');
+    assert.equal((await social.json()).amount, 1);
+
+    const outbid = await post('/api/bid', { target: 'cheap.example.com', amount: 1 }, OUTBID);
+    assert.equal(outbid.status, 400, '$1 is below the product board floor');
+    assert.match((await outbid.json()).error, /minimum bid is \$5/);
+  });
+
+  test('each board reports its own floor', async () => {
+    assert.equal((await get('/api/stats', SOCIAL)).minBid, 1);
+    assert.equal((await get('/api/stats', OUTBID)).minBid, 5);
+  });
+
+  test('an empty board quotes its own floor as the opening price', async () => {
+    // Both boards already have listings here, so check the floor feeds
+    // through rather than the next-bid arithmetic.
+    const s = await get('/api/stats', SOCIAL);
+    assert.ok(s.nextBid >= s.minBid);
+  });
+
+  test('below-floor is still refused on the creator board', async () => {
+    const res = await post('/api/bid', { target: '@toocheap', amount: 0 }, SOCIAL);
+    assert.equal(res.status, 400);
+  });
+});

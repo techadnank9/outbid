@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as store from './db.js';
 import { parseTarget, fetchMetadata, InputError } from './metadata.js';
 import { categoriesFor, categoryMapFor, classify } from './categories.js';
+import { minBidCents, maxBidCents } from './brands.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
@@ -9,8 +10,10 @@ import {
   promoAllowedFor
 } from './payments.js';
 
-export const MIN_BID_CENTS = 500;          // $5 floor
-export const MAX_BID_CENTS = 100_000_00;   // $100k ceiling
+/* Floors are per brand — see src/brands.js. These remain as the defaults
+   used where no brand is in scope. */
+export const MIN_BID_CENTS = 500;
+export const MAX_BID_CENTS = 100_000_00;
 export const PER_PAGE = 50;
 
 class HttpError extends Error {
@@ -113,15 +116,17 @@ function requireAdmin(ctx){
 }
 
 /* ── Amount validation ────────────────────────────────────────── */
-function parseAmount(raw){
+function parseAmount(raw, brand = 'outbid'){
   const dollars = Number(raw);
   if (!Number.isFinite(dollars)) throw new HttpError(400, 'Enter a bid amount.');
   const cents = Math.round(dollars * 100);
-  if (cents < MIN_BID_CENTS){
-    throw new HttpError(400, `The minimum bid is $${MIN_BID_CENTS / 100}.`);
+  const min = minBidCents(brand);
+  const max = maxBidCents(brand);
+  if (cents < min){
+    throw new HttpError(400, `The minimum bid is $${min / 100}.`);
   }
-  if (cents > MAX_BID_CENTS){
-    throw new HttpError(400, `The maximum bid is $${(MAX_BID_CENTS / 100).toLocaleString()}.`);
+  if (cents > max){
+    throw new HttpError(400, `The maximum bid is $${(max / 100).toLocaleString()}.`);
   }
   return cents;
 }
@@ -198,8 +203,8 @@ export const routes = {
       topBid: top / 100,
       // The rules say a rank costs $1 more than the listing holding it, so
       // the headline price must agree rather than quoting a $5 step.
-      nextBid: top ? top / 100 + 1 : MIN_BID_CENTS / 100,
-      minBid: MIN_BID_CENTS / 100,
+      nextBid: top ? top / 100 + 1 : minBidCents(ctx.brand) / 100,
+      minBid: minBidCents(ctx.brand) / 100,
       listings: store.boardCount(ctx.brand),
       payments: stripeEnabled ? 'stripe' : 'dev'
     };
@@ -314,7 +319,7 @@ export const routes = {
       throw e;
     }
 
-    const cents = parseAmount(ctx.body?.amount);
+    const cents = parseAmount(ctx.body?.amount, ctx.brand);
     const meta = await fetchMetadata(parsed);
     const listing = store.upsertListing({
       brand: ctx.brand, kind: parsed.kind, target: parsed.target, url: parsed.url,
@@ -403,11 +408,11 @@ export const routes = {
       }),
       alreadyListed: Boolean(current),
       currentPrice: current / 100,
-      minimum: (current ? current + 100 : MIN_BID_CENTS) / 100
+      minimum: (current ? current + 100 : minBidCents(ctx.brand)) / 100
     };
 
     if (ctx.body.amount !== undefined && ctx.body.amount !== ''){
-      const cents = parseAmount(ctx.body.amount);
+      const cents = parseAmount(ctx.body.amount, ctx.brand);
       result.amount = cents / 100;
       result.rank = store.rankForAmount(ctx.brand, cents, existing?.id ?? null);
       result.beatsCurrent = cents > current;
@@ -429,7 +434,7 @@ export const routes = {
       throw e;
     }
 
-    const cents = parseAmount(ctx.body.amount);
+    const cents = parseAmount(ctx.body.amount, ctx.brand);
     const existing = store.findListing(ctx.brand, parsed.target);
     const current = existing ? store.highestPaidBid(existing.id) : 0;
 

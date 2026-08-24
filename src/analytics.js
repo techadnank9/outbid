@@ -64,12 +64,14 @@ export const analyticsFingerprint = createHash('sha1')
    should not ask for a "product URL". */
 const COPY = {
   '': {
+    minBid: '$5',
     heroVerb: 'Claim',
     cta: 'Outbid',
     inputHint: 'Your product URL or @handle',
     rebidHint: 'Already on the list? Enter the same URL or @handle and up your bid.'
   },
   socialrise: {
+    minBid: '$1',
     heroVerb: 'Rise to',
     cta: 'Rise',
     inputHint: 'Your @handle or profile link',
@@ -89,6 +91,7 @@ export function renderHtml(html){
     .replaceAll('%BRAND_SLUG%', attr(THEME || 'base'))
     .replaceAll('%FONTS%', `<link href="${fonts}" rel="stylesheet">`)
     .replaceAll('%THEME_CSS%', themeCss)
+    .replaceAll('%MIN_BID%', attr(copy.minBid))
     .replaceAll('%HERO_VERB%', attr(copy.heroVerb))
     .replaceAll('%CTA%', attr(copy.cta))
     .replaceAll('%INPUT_HINT%', attr(copy.inputHint))
