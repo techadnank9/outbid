@@ -157,3 +157,48 @@ describe('the brand migration must not destroy data', () => {
     );
   });
 });
+
+describe('platform selection', () => {
+  test('the same handle on two platforms is two listings', async () => {
+    await post('/api/bid', { target: '@sam', amount: 5, platform: 'tiktok' }, SOCIAL);
+    await post('/api/bid', { target: '@sam', amount: 4, platform: 'x' }, SOCIAL);
+
+    const board = await get('/api/board', SOCIAL);
+    const sams = board.items.filter(i => i.target.startsWith('@sam'));
+    assert.equal(sams.length, 2, '@sam on TikTok and @sam on X are different people');
+    assert.deepEqual(
+      sams.map(i => i.platformName).sort(),
+      ['TikTok', 'X']
+    );
+  });
+
+  test('a profile link is keyed by handle, not by host', async () => {
+    // Every TikTok creator shares tiktok.com — keying by host would collapse
+    // them into one listing.
+    await post('/api/bid', { target: 'https://tiktok.com/@jess', amount: 6 }, SOCIAL);
+    await post('/api/bid', { target: 'https://tiktok.com/@alex', amount: 7 }, SOCIAL);
+
+    const board = await get('/api/board', SOCIAL);
+    assert.ok(board.items.find(i => i.target === '@jess:tiktok'));
+    assert.ok(board.items.find(i => i.target === '@alex:tiktok'));
+  });
+
+  test('a pasted link resolves its own platform', async () => {
+    const res = await post('/api/preview', { target: 'https://instagram.com/nasa' }, SOCIAL);
+    const body = await res.json();
+    assert.equal(body.platform, 'instagram');
+    assert.equal(body.platformName, 'Instagram');
+    assert.equal(body.display, '@nasa');
+  });
+
+  test('twitter.com normalises to X', async () => {
+    const res = await post('/api/preview', { target: 'https://twitter.com/someone' }, SOCIAL);
+    assert.equal((await res.json()).platform, 'x');
+  });
+
+  test('the platform list is public', async () => {
+    const body = await get('/api/platforms', SOCIAL);
+    const slugs = body.items.map(p => p.slug);
+    for (const p of ['x', 'instagram', 'tiktok', 'youtube']) assert.ok(slugs.includes(p));
+  });
+});

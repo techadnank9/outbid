@@ -1,6 +1,8 @@
 /* Resolves what a user typed into a canonical listing, then fetches the real
    page to pull its title, description and icon. No placeholder data. */
 
+import { PLATFORM_BY_SLUG, platformFromUrl, profileUrl, handleFromUrl } from './platforms.js';
+
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_HTML_BYTES = 512 * 1024;
 
@@ -28,7 +30,7 @@ function isBlockedHost(host){
 export class InputError extends Error {}
 
 /* ── Parse what the user typed ───────────────────────────────── */
-export function parseTarget(raw){
+export function parseTarget(raw, platform = null){
   const input = String(raw ?? '').trim();
   if (!input) throw new InputError('Enter a product URL or @handle.');
   if (input.length > 400) throw new InputError('That is too long to be a URL or handle.');
@@ -38,10 +40,16 @@ export function parseTarget(raw){
     if (!/^[A-Za-z0-9_]{1,30}$/.test(handle)){
       throw new InputError('A handle can only use letters, numbers and underscores.');
     }
+    /* A bare @handle says nothing about which network it is on, so the
+       platform chosen in the form decides where it links. Handles are
+       keyed per platform, so @sam on TikTok and @sam on X are different
+       listings rather than fighting over one row. */
+    const slug = PLATFORM_BY_SLUG.has(platform) ? platform : 'x';
     return {
       kind: 'handle',
-      target: '@' + handle.toLowerCase(),
-      url: `https://x.com/${handle}`,
+      platform: slug,
+      target: `@${handle.toLowerCase()}${slug === 'x' ? '' : `:${slug}`}`,
+      url: profileUrl(slug, handle),
       display: '@' + handle
     };
   }
@@ -62,8 +70,25 @@ export function parseTarget(raw){
 
   // One listing per hostname — bidding is for the product, not the deep link.
   const host = url.hostname.replace(/^www\./i, '').toLowerCase();
+  /* A profile link is a person, not a website: key it by handle so two
+     creators on the same platform are two listings. */
+  const urlPlatform = platformFromUrl(url.href);
+  if (urlPlatform){
+    const handle = handleFromUrl(urlPlatform, url.href);
+    if (handle){
+      return {
+        kind: 'handle',
+        platform: urlPlatform,
+        target: `@${handle.toLowerCase()}${urlPlatform === 'x' ? '' : `:${urlPlatform}`}`,
+        url: profileUrl(urlPlatform, handle),
+        display: '@' + handle
+      };
+    }
+  }
+
   return {
     kind: 'url',
+    platform: urlPlatform || 'web',
     target: host,
     url: `${url.protocol}//${url.hostname}${url.pathname === '/' ? '' : url.pathname}`,
     display: host

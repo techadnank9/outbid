@@ -43,6 +43,14 @@
         </span>
         <input id="urlInput" type="text" placeholder="%INPUT_HINT%" aria-label="%INPUT_HINT%" />
       </div>
+      <div class="cat-picker platform-picker" id="platformPicker" hidden>
+        <button type="button" class="cat-picker-btn" id="platformPickerBtn"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="cat-picker-label placeholder" id="platformPickerLabel">Platform</span>
+          <svg class="cat-picker-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="cat-picker-menu" id="platformPickerMenu" role="listbox" hidden></div>
+      </div>
       <div class="cat-picker" id="catPicker">
         <button type="button" class="cat-picker-btn" id="catPickerBtn"
                 aria-haspopup="listbox" aria-expanded="false">

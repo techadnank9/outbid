@@ -177,6 +177,8 @@ function rowHtml(item){
         <div class="row-meta">
           <span>${ago(item.since)}</span>
           <span class="clicks">${fmtInt(item.clicks)} clicks</span>
+          ${item.platformName
+            ? `<span class="row-platform">${escapeHtml(item.platformName)}</span>` : ''}
           ${item.category && !state.category
             ? `<span class="row-category">${categoryIcon(item.category)}${escapeHtml(item.categoryName)}</span>`
             : ''}
@@ -259,6 +261,59 @@ async function loadCategories(){
   renderPickerMenu();
   renderTabs();
 }
+
+/* ── Platform picker ─────────────────────────────────────────────
+   Only shown where it means something: a creator board needs to know
+   whether @sam is TikTok or X, since the handle alone does not say. */
+let platforms = [];
+let chosenPlatform = '';
+
+async function loadPlatforms(){
+  if (!$('platformPicker')) return;
+  try { platforms = (await api('/api/platforms')).items; } catch { return; }
+
+  $('platformPicker').hidden = false;
+  $('platformPickerMenu').innerHTML = platforms.map(p => `
+    <button type="button" role="option" class="cat-option${chosenPlatform === p.slug ? ' selected' : ''}"
+            data-slug="${p.slug}" aria-selected="${chosenPlatform === p.slug}">
+      <span>${escapeHtml(p.name)}</span>
+    </button>`).join('');
+}
+
+function setChosenPlatform(slug, byUser){
+  chosenPlatform = slug || '';
+  const label = $('platformPickerLabel');
+  const found = platforms.find(p => p.slug === chosenPlatform);
+  if (label){
+    label.textContent = found ? found.name : 'Platform';
+    label.classList.toggle('placeholder', !found);
+  }
+  if (byUser) $('platformPicker')?.setAttribute('data-touched', '1');
+  loadPlatforms();
+}
+
+$('platformPickerBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const menu = $('platformPickerMenu');
+  menu.hidden = !menu.hidden;
+  $('platformPickerBtn').setAttribute('aria-expanded', String(!menu.hidden));
+});
+
+$('platformPickerMenu')?.addEventListener('click', (e) => {
+  const opt = e.target.closest('.cat-option');
+  if (!opt) return;
+  setChosenPlatform(opt.dataset.slug, true);
+  $('platformPickerMenu').hidden = true;
+  $('platformPickerBtn').setAttribute('aria-expanded', 'false');
+  previewSoon();
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#platformPicker') && $('platformPickerMenu')){
+    $('platformPickerMenu').hidden = true;
+    $('platformPickerBtn')?.setAttribute('aria-expanded', 'false');
+  }
+});
 
 /* ── Category picker (custom, so each option can carry its icon) ── */
 let chosenCategory = '';
@@ -429,9 +484,14 @@ async function runPreview(){
   try {
     const data = await api('/api/preview', {
       method: 'POST',
-      body: JSON.stringify({ target, amount: currentBid() })
+      body: JSON.stringify({ target, amount: currentBid(), platform: chosenPlatform || undefined })
     });
     if (seq !== previewSeq) return;   // a newer lookup already won
+
+    // A pasted profile link already says which network it is.
+    if (!$('platformPicker')?.dataset.touched && data.platform){
+      setChosenPlatform(data.platform, false);
+    }
 
     if (!$('catPicker')?.dataset.touched && data.category) setChosenCategory(data.category, false);
 
@@ -478,7 +538,8 @@ $('claimForm').addEventListener('submit', async (e) => {
       body: JSON.stringify({
         target,
         amount: currentBid(),
-        category: chosenCategory || undefined
+        category: chosenCategory || undefined,
+        platform: chosenPlatform || undefined
       })
     });
 
@@ -495,6 +556,8 @@ $('claimForm').addEventListener('submit', async (e) => {
     state.bidEdited = false;
     setChosenCategory('', false);
     $('catPicker')?.removeAttribute('data-touched');
+    setChosenPlatform('', false);
+    $('platformPicker')?.removeAttribute('data-touched');
     await refreshAll();
   } catch (err){
     toast(err.message, true);
@@ -571,7 +634,7 @@ $('refreshBtn').addEventListener('click', async () => {
 });
 
 async function refreshAll(){
-  await Promise.all([loadBoard(), loadPanels(), loadStats(), loadCategories()]);
+  await Promise.all([loadBoard(), loadPanels(), loadStats(), loadCategories(), loadPlatforms()]);
 }
 
 /* ── Live updates ─────────────────────────────────────────────── */

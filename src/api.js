@@ -3,6 +3,7 @@ import * as store from './db.js';
 import { parseTarget, fetchMetadata, InputError } from './metadata.js';
 import { categoriesFor, categoryMapFor, classify } from './categories.js';
 import { minBidCents, maxBidCents } from './brands.js';
+import { PLATFORMS, PLATFORM_BY_SLUG, platformName } from './platforms.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
@@ -36,6 +37,8 @@ function listingView(row, rank){
     claimPrice: row.amount_cents / 100 + 1,
     clicks: row.clicks,
     category: row.category || 'other',
+    platform: row.platform || null,
+    platformName: row.platform ? platformName(row.platform) : null,
     categoryName: categoryMapFor(row.brand).get(row.category)?.name || 'Everything Else',
     since: row.paid_at
   };
@@ -158,6 +161,10 @@ export const routes = {
     const category = raw ? (categoryMapFor(ctx.brand).has(raw) ? raw : '__none__') : null;
     return cached(`board:${ctx.brand}:${page}:${category || 'all'}`, () => buildBoard(ctx.brand, page, category));
   },
+
+  'GET /api/platforms': () => ({
+    items: PLATFORMS.map(p => ({ slug: p.slug, name: p.name }))
+  }),
 
   'GET /api/categories': (ctx) => cached(`categories:${ctx.brand}`, () => {
     const counts = store.categoryCounts(ctx.brand);
@@ -313,7 +320,7 @@ export const routes = {
   'POST /api/admin/listing': async (ctx) => {
     requireAdmin(ctx);
     let parsed;
-    try { parsed = parseTarget(ctx.body?.target); }
+    try { parsed = parseTarget(ctx.body?.target, ctx.body?.platform); }
     catch (e){
       if (e instanceof InputError) throw new HttpError(400, e.message);
       throw e;
@@ -324,6 +331,7 @@ export const routes = {
     const listing = store.upsertListing({
       brand: ctx.brand, kind: parsed.kind, target: parsed.target, url: parsed.url,
       title: meta.title, description: meta.description, iconUrl: meta.iconUrl,
+      platform: parsed.platform,
       category: categoryMapFor(ctx.brand).has(ctx.body?.category)
         ? ctx.body.category
         : classify({ target: parsed.target, kind: parsed.kind, brand: ctx.brand,
@@ -383,7 +391,7 @@ export const routes = {
     }
 
     let parsed;
-    try { parsed = parseTarget(ctx.body.target); }
+    try { parsed = parseTarget(ctx.body.target, ctx.body.platform); }
     catch (e){
       if (e instanceof InputError) throw new HttpError(400, e.message);
       throw e;
@@ -397,6 +405,9 @@ export const routes = {
       target: parsed.target,
       kind: parsed.kind,
       url: parsed.url,
+      platform: parsed.platform,
+      platformName: platformName(parsed.platform),
+      display: parsed.display,
       title: meta.title,
       description: meta.description,
       icon: meta.iconUrl,
@@ -428,7 +439,7 @@ export const routes = {
     }
 
     let parsed;
-    try { parsed = parseTarget(ctx.body.target); }
+    try { parsed = parseTarget(ctx.body.target, ctx.body.platform); }
     catch (e){
       if (e instanceof InputError) throw new HttpError(400, e.message);
       throw e;
@@ -454,6 +465,7 @@ export const routes = {
       title: meta.title,
       description: meta.description,
       iconUrl: meta.iconUrl,
+      platform: parsed.platform,
       /* A category chosen in the form wins; otherwise fall back to the
          classifier. An unknown slug is ignored rather than rejected — a bad
          dropdown value should never block a payment. */

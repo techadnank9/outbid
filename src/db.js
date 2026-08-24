@@ -112,6 +112,9 @@ for (const [col, type] of [
 ]){
   if (!bidCols.includes(col)) db.exec(`ALTER TABLE bids ADD COLUMN ${col} ${type}`);
 }
+if (!listingCols.includes('platform')){
+  db.exec(`ALTER TABLE listings ADD COLUMN platform TEXT`);
+}
 if (!listingCols.includes('category')){
   db.exec(`ALTER TABLE listings ADD COLUMN category TEXT NOT NULL DEFAULT 'other'`);
 }
@@ -154,15 +157,16 @@ if (!hasBrand){
         description  TEXT NOT NULL DEFAULT '',
         icon_url     TEXT,
         category     TEXT NOT NULL DEFAULT 'other',
+        platform     TEXT,
         clicks_total INTEGER NOT NULL DEFAULT 0,
         created_at   INTEGER NOT NULL,
         UNIQUE (brand, target)
       );
 
       INSERT INTO listings_new
-        (id, brand, kind, target, url, title, description, icon_url, category, clicks_total, created_at)
+        (id, brand, kind, target, url, title, description, icon_url, category, platform, clicks_total, created_at)
       SELECT id, 'outbid', kind, target, url, title, description, icon_url,
-             COALESCE(category,'other'), COALESCE(clicks_total,0), created_at
+             COALESCE(category,'other'), platform, COALESCE(clicks_total,0), created_at
       FROM listings;
 
       DROP TABLE listings;
@@ -183,6 +187,9 @@ if (!hasBrand){
     db.exec('PRAGMA foreign_keys = ON');
   }
 }
+if (!db.prepare(`PRAGMA table_info(listings)`).all().some(c => c.name === 'platform')){
+  db.exec(`ALTER TABLE listings ADD COLUMN platform TEXT`);
+}
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand ON listings(brand)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listings_brand_cat ON listings(brand, category)`);
 
@@ -197,6 +204,7 @@ const BOARD_SELECT = `
     b.paid_at,
     l.clicks_total AS clicks,
     l.category,
+    l.platform,
     (SELECT b2.amount_paid_cents
        FROM bids b2
       WHERE b2.listing_id = l.id AND b2.status = 'paid'
@@ -331,22 +339,25 @@ export function getListing(id){
   return db.prepare(`SELECT * FROM listings WHERE id = ?`).get(id);
 }
 
-export function upsertListing({ brand, kind, target, url, title, description, iconUrl, category }){
+export function upsertListing({ brand, kind, target, url, title, description, iconUrl, category, platform }){
   const existing = findListing(brand, target);
   if (existing){
     /* Refresh metadata — the product page may have changed since the last
        bid. The category is left alone: an owner may have had it corrected
        by hand, and a re-bid should not silently undo that. */
     db.prepare(`
-      UPDATE listings SET url = ?, title = ?, description = ?, icon_url = ?
+      UPDATE listings SET url = ?, title = ?, description = ?, icon_url = ?,
+                          platform = COALESCE(?, platform)
       WHERE id = ?
-    `).run(url, title, description, iconUrl ?? null, existing.id);
+    `).run(url, title, description, iconUrl ?? null, platform ?? null, existing.id);
     return getListing(existing.id);
   }
   const info = db.prepare(`
-    INSERT INTO listings (brand, kind, target, url, title, description, icon_url, category, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(brand, kind, target, url, title, description, iconUrl ?? null, category || 'other', Date.now());
+    INSERT INTO listings
+      (brand, kind, target, url, title, description, icon_url, category, platform, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(brand, kind, target, url, title, description, iconUrl ?? null,
+         category || 'other', platform ?? null, Date.now());
   return getListing(Number(info.lastInsertRowid));
 }
 
@@ -507,7 +518,7 @@ export function listPromos(){
 /* ── Feeds ────────────────────────────────────────────────────── */
 export function recentActivity(brand, limit = 5){
   return db.prepare(`
-    SELECT l.id, l.target, l.title, l.icon_url,
+    SELECT l.id, l.target, l.title, l.icon_url, l.platform,
            b.amount_cents, b.amount_paid_cents, b.paid_at
     FROM bids b JOIN listings l ON l.id = b.listing_id
     WHERE b.status = 'paid' AND l.brand = ?
