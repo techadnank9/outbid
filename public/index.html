@@ -25,14 +25,14 @@
       <span class="bid-control">
         <button class="step" id="stepDown" type="button" aria-label="Decrease bid">−</button>
         <span class="bid-wrap">
-          <span class="bid-currency">$</span><input id="bidInput" class="bid-input" inputmode="numeric" aria-label="Amount in dollars" value="5" />
+          <span class="bid-currency">$</span><input id="bidInput" class="bid-input" inputmode="numeric" aria-label="Amount in dollars" value="%MIN_BID_NUM%" />
         </span>
         <button class="step" id="stepUp" type="button" aria-label="Increase bid">+</button>
       </span>
     </h1>
 
     <p class="hero-sub">
-      <span class="accent">New spots start at <span id="minBid">$5</span>.</span>
+      <span class="accent">New spots start at <span id="minBid">%MIN_BID%</span>.</span>
       Paying less than the #1 price still puts you on the board at whatever place that bid can take.
     </p>
 

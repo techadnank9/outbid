@@ -133,6 +133,25 @@ export const launchedAt = Number(
   db.prepare(`SELECT value FROM meta WHERE key = 'launched_at'`).get().value
 );
 
+/* Each board opened on its own day. Reporting the instance's first boot
+   made SocialRise claim it had been live for two days on the day it
+   launched. Recorded the first time a board is asked about itself. */
+export function launchedAtFor(brand){
+  const key = `launched_at:${brand}`;
+  const existing = getMeta(key);
+  if (existing) return Number(existing);
+
+  /* If the board already has listings, it predates this tracking — use its
+     oldest listing rather than pretending it launched just now. */
+  const oldest = db.prepare(
+    `SELECT MIN(created_at) AS t FROM listings WHERE brand = ?`
+  ).get(brand)?.t;
+
+  const when = oldest || Date.now();
+  setMeta(key, when);
+  return when;
+}
+
 /* ── Per-brand boards ─────────────────────────────────────────────
    Each brand is its own leaderboard over shared infrastructure, so the
    same handle can be listed on two of them independently. `target` was

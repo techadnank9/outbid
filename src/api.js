@@ -209,7 +209,7 @@ export const routes = {
       online,
       visitors: total,
       revenue: store.revenueCents(ctx.brand) / 100,
-      launchedAt: store.launchedAt,
+      launchedAt: store.launchedAtFor(ctx.brand),
       topBid: top / 100,
       // The rules say a rank costs $1 more than the listing holding it, so
       // the headline price must agree rather than quoting a $5 step.

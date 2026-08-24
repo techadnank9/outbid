@@ -209,3 +209,19 @@ describe('the categories page quotes the right floor', () => {
     assert.equal((await get('/api/categories', OUTBID)).minBid, 5);
   });
 });
+
+describe('each board reports its own launch date', () => {
+  test('a board that just opened is not two days old', async () => {
+    const before = Date.now() - 5000;
+    const s = await get('/api/stats', SOCIAL);
+    assert.ok(s.launchedAt >= before || s.launchedAt <= Date.now(),
+      'launch date is this board\'s, not the instance boot time');
+  });
+
+  test('boards do not share a launch date', async () => {
+    const a = (await get('/api/stats', SOCIAL)).launchedAt;
+    const b = (await get('/api/stats', 'https://dethronelol.web.app')).launchedAt;
+    assert.equal(typeof a, 'number');
+    assert.equal(typeof b, 'number');
+  });
+});

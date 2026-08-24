@@ -92,6 +92,7 @@ export function renderHtml(html){
     .replaceAll('%FONTS%', `<link href="${fonts}" rel="stylesheet">`)
     .replaceAll('%THEME_CSS%', themeCss)
     .replaceAll('%MIN_BID%', attr(copy.minBid))
+    .replaceAll('%MIN_BID_NUM%', attr(copy.minBid.replace(/[^0-9.]/g, '')))
     .replaceAll('%HERO_VERB%', attr(copy.heroVerb))
     .replaceAll('%CTA%', attr(copy.cta))
     .replaceAll('%INPUT_HINT%', attr(copy.inputHint))
