@@ -202,3 +202,10 @@ describe('platform selection', () => {
     for (const p of ['x', 'instagram', 'tiktok', 'youtube']) assert.ok(slugs.includes(p));
   });
 });
+
+describe('the categories page quotes the right floor', () => {
+  test('each board reports its own opening price', async () => {
+    assert.equal((await get('/api/categories', SOCIAL)).minBid, 1);
+    assert.equal((await get('/api/categories', OUTBID)).minBid, 5);
+  });
+});

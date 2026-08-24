@@ -169,6 +169,9 @@ export const routes = {
   'GET /api/categories': (ctx) => cached(`categories:${ctx.brand}`, () => {
     const counts = store.categoryCounts(ctx.brand);
     return {
+      // The page quotes what an unclaimed category costs, and that floor
+      // differs per board — $1 on the creator board, $5 elsewhere.
+      minBid: minBidCents(ctx.brand) / 100,
       items: categoriesFor(ctx.brand).map(c => {
         const hit = counts.get(c.slug);
         return {

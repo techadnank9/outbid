@@ -30,6 +30,7 @@
     return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); };
 
   fetch(base + '/api/categories').then(function(r){ return r.json(); }).then(function(d){
+    var floor = '$' + Number(d.minBid || 5).toLocaleString('en-US');
     grid.innerHTML = d.items.map(function(c){
       var taken = c.listings > 0;
       return '<a class="cat-card' + (taken ? '' : ' empty') + '" href="/?category=' + esc(c.slug) + '">'
@@ -38,7 +39,7 @@
         + (taken
             ? c.listings + (c.listings === 1 ? ' listing' : ' listings')
               + ' · #1 at $' + Number(c.topBid).toLocaleString('en-US')
-            : 'unclaimed — $5 takes #1')
+            : 'unclaimed — ' + floor + ' takes #1')
         + '</span></a>';
     }).join('');
   }).catch(function(){
