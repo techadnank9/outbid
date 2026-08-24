@@ -42,7 +42,9 @@ const FOOTER = partial('_footer.html');
    old max-age would keep serving it. Stamp each reference with a hash of the
    file's contents: unchanged files keep their URL and stay cached, changed
    ones get a new URL and are fetched immediately. */
-const ASSETS = ['styles.css', 'app.js', 'theme.js', 'icons.js'];
+const THEME = process.env.BRAND_THEME || '';
+const ASSETS = ['styles.css', 'app.js', 'theme.js', 'icons.js']
+  .concat(THEME ? [`theme-${THEME}.css`] : []);
 const stamp = Object.fromEntries(ASSETS.map(f => [
   f,
   createHash('sha1').update(readFileSync(join(SRC, f))).digest('hex').slice(0, 8)
@@ -75,7 +77,7 @@ writeFileSync(join(OUT, 'config.js'),
   `window.__CONFIG__ = ${JSON.stringify({ apiBase: API_BASE }, null, 2)};\n`
 );
 
-for (const file of ['styles.css', 'app.js', 'theme.js', 'icons.js']){
+for (const file of ASSETS){
   copyFileSync(join(SRC, file), join(OUT, file));
 }
 

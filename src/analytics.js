@@ -10,6 +10,14 @@ const WEBSITE_ID = process.env.DATAFAST_WEBSITE_ID || '';   // dfid_...
 const DOMAIN     = process.env.DATAFAST_DOMAIN || '';       // your-domain.com
 const SHARE_URL  = process.env.DATAFAST_SHARE_URL || '';    // public dashboard
 const BRAND      = process.env.BRAND_NAME || 'Outbid';      // per-domain name
+const THEME      = process.env.BRAND_THEME || '';           // '' = base look
+
+/* Each brand gets its own type. Loading only what a brand uses keeps the
+   font payload honest rather than shipping both families everywhere. */
+const FONT_SETS = {
+  '': 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Geist+Mono:wght@400;500;600;700&display=swap',
+  socialrise: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap'
+};
 
 /* DataFast ships two trackers: script.js (the default from the dashboard)
    and script.cookieless.js, which sets no cookies and so needs no consent
@@ -48,13 +56,43 @@ export function statsTargetAttrs(){
 /* Injected config participates in the ETag — otherwise a config change would
    keep serving the previously cached HTML. */
 export const analyticsFingerprint = createHash('sha1')
-  .update(`${WEBSITE_ID}|${DOMAIN}|${SHARE_URL}|${SCRIPT}|${BRAND}`)
+  .update(`${WEBSITE_ID}|${DOMAIN}|${SHARE_URL}|${SCRIPT}|${BRAND}|${THEME}`)
   .digest('hex')
   .slice(0, 8);
 
+/* Copy that should speak the brand's language. A leaderboard of creators
+   should not ask for a "product URL". */
+const COPY = {
+  '': {
+    heroVerb: 'Claim',
+    cta: 'Outbid',
+    inputHint: 'Your product URL or @handle',
+    rebidHint: 'Already on the list? Enter the same URL or @handle and up your bid.'
+  },
+  socialrise: {
+    heroVerb: 'Rise to',
+    cta: 'Rise',
+    inputHint: 'Your @handle or profile link',
+    rebidHint: 'Already climbing? Enter the same @handle and raise your bid.'
+  }
+};
+
 export function renderHtml(html){
+  const copy = COPY[THEME] || COPY[''];
+  const fonts = FONT_SETS[THEME] || FONT_SETS[''];
+  const themeCss = THEME
+    ? `\n<link rel="stylesheet" href="/theme-${attr(THEME)}.css" />`
+    : '';
+
   return html
     .replaceAll('%BRAND%', attr(BRAND))
+    .replaceAll('%BRAND_SLUG%', attr(THEME || 'base'))
+    .replaceAll('%FONTS%', `<link href="${fonts}" rel="stylesheet">`)
+    .replaceAll('%THEME_CSS%', themeCss)
+    .replaceAll('%HERO_VERB%', attr(copy.heroVerb))
+    .replaceAll('%CTA%', attr(copy.cta))
+    .replaceAll('%INPUT_HINT%', attr(copy.inputHint))
+    .replaceAll('%REBID_HINT%', attr(copy.rebidHint))
     .replaceAll('<!--ANALYTICS-->', analyticsTag())
     .replaceAll('%STATS_HREF%', statsHref())
     .replaceAll('%STATS_TARGET%', statsTargetAttrs());

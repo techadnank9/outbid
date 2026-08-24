@@ -1,0 +1,174 @@
+/* SocialRise — a distinct identity, not a recolour of Outbid.
+   Loaded only when BRAND_THEME=socialrise; the base stylesheet still
+   supplies layout, so this is tokens plus the components that carry the
+   personality. */
+
+:root[data-brand="socialrise"]{
+  /* Violet-biased neutrals, dark-first: social products are used at night
+     and a warm cream ground would fight the accent. */
+  --background:#0B0B12;
+  --foreground:#F4F4FA;
+  --card:#15151F;
+  --muted:#1C1C28;
+  --muted-foreground:#8E8CA6;
+  --border:#272736;
+
+  --primary:#8B6BFF;
+  --primary-foreground:#0B0B12;
+  --live:#2BD97C;
+
+  /* The rise: violet climbing to pink. Used for rank, the logo and the
+     price — the three things the board is actually about. */
+  --rise:linear-gradient(135deg,#7C5CFF 0%,#B24BFF 45%,#FF4D9D 100%);
+
+  --radius:1.1rem;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.5);
+  --shadow-md:0 8px 28px -10px rgba(124,92,255,.35);
+  --shadow-lg:0 24px 60px -24px rgba(124,92,255,.5);
+
+  --font-sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
+  --font-display:"Bricolage Grotesque","Plus Jakarta Sans",system-ui,sans-serif;
+  --font-mono:"Geist Mono",ui-monospace,SFMono-Regular,monospace;
+}
+
+/* A light mode exists, but the identity lives in the dark one. */
+:root[data-brand="socialrise"][data-theme="light"]{
+  --background:#FBFAFF;
+  --foreground:#15151F;
+  --card:#FFFFFF;
+  --muted:#F3F1FB;
+  --muted-foreground:#63607D;
+  --border:#E6E2F5;
+  --primary:#6D46F2;
+  --primary-foreground:#FFFFFF;
+  --shadow-md:0 8px 28px -10px rgba(109,70,242,.22);
+  --shadow-lg:0 24px 60px -24px rgba(109,70,242,.3);
+}
+
+[data-brand="socialrise"] body{
+  font-family:var(--font-sans);
+  /* Two soft lights behind the page so the dark ground is not flat. */
+  background-image:
+    radial-gradient(900px 500px at 12% -12%, rgba(124,92,255,.16), transparent 60%),
+    radial-gradient(760px 420px at 92% -4%, rgba(255,77,157,.12), transparent 60%);
+  background-attachment:fixed;
+}
+
+/* ── Wordmark ───────────────────────────────────────── */
+[data-brand="socialrise"] .brand-name{
+  font-family:var(--font-display);
+  font-weight:800;
+  letter-spacing:-.04em;
+  background:var(--rise);
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+}
+[data-brand="socialrise"] .brand-dot{display:none}
+[data-brand="socialrise"] .brand-mark{
+  color:#fff;
+  background:var(--rise);
+  border-radius:10px;padding:4px;
+  width:30px;height:30px;
+}
+
+/* ── Hero ───────────────────────────────────────────── */
+[data-brand="socialrise"] .hero-title{
+  font-family:var(--font-display);
+  font-weight:800;
+  letter-spacing:-.045em;
+}
+[data-brand="socialrise"] .bid-wrap{
+  background:var(--rise);
+  -webkit-background-clip:text;background-clip:text;
+}
+[data-brand="socialrise"] .bid-input,
+[data-brand="socialrise"] .bid-currency{color:transparent}
+[data-brand="socialrise"] .bid-input{caret-color:#B24BFF}
+
+[data-brand="socialrise"] .btn-outbid{
+  background:var(--rise);
+  color:#fff;
+  font-weight:700;
+  box-shadow:0 8px 24px -10px rgba(178,75,255,.7);
+}
+[data-brand="socialrise"] .btn-outbid:disabled{box-shadow:none}
+
+/* ── Profiles are people, so avatars are round ──────── */
+[data-brand="socialrise"] .row-avatar,
+[data-brand="socialrise"] .avatar{border-radius:999px}
+[data-brand="socialrise"] .row-avatar{
+  box-shadow:0 0 0 2px var(--card), 0 0 0 3.5px transparent;
+}
+[data-brand="socialrise"] .row.top .row-avatar{
+  box-shadow:0 0 0 2px var(--card), 0 0 0 4px #B24BFF;
+}
+
+/* ── Rank ───────────────────────────────────────────── */
+[data-brand="socialrise"] .rank{
+  font-family:var(--font-mono);
+  font-weight:700;
+}
+[data-brand="socialrise"] .row.top .rank{
+  background:var(--rise);
+  color:#fff;
+  box-shadow:0 6px 18px -8px rgba(178,75,255,.9);
+}
+
+[data-brand="socialrise"] .row.top{
+  background:
+    linear-gradient(180deg, rgba(124,92,255,.14), rgba(255,77,157,.06)),
+    var(--card);
+  border-color:rgba(139,107,255,.45);
+}
+[data-brand="socialrise"] .row.top:hover{
+  border-color:rgba(178,75,255,.75);
+}
+
+[data-brand="socialrise"] .row-price{
+  font-family:var(--font-mono);
+  font-weight:700;
+  letter-spacing:-.02em;
+}
+[data-brand="socialrise"] .row.top .row-price{
+  background:var(--rise);
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+}
+
+/* ── Panels, tabs, cards ────────────────────────────── */
+[data-brand="socialrise"] .panel,
+[data-brand="socialrise"] .cat-card,
+[data-brand="socialrise"] .stat{
+  background:linear-gradient(180deg, rgba(255,255,255,.035), transparent), var(--card);
+}
+[data-brand="socialrise"] .cat-tab.active{
+  background:var(--rise);
+  border-color:transparent;
+  color:#fff;
+}
+[data-brand="socialrise"] .stats-pill{
+  background:linear-gradient(180deg, rgba(255,255,255,.05), transparent), var(--card);
+}
+
+[data-brand="socialrise"] .revenue-card{
+  background:linear-gradient(180deg, rgba(124,92,255,.16), transparent), var(--card);
+  border:1px solid var(--border);
+}
+[data-brand="socialrise"] .revenue-currency{
+  background:var(--rise);
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+}
+
+[data-brand="socialrise"] .doc-title{
+  font-family:var(--font-display);
+  font-weight:800;letter-spacing:-.04em;
+}
+[data-brand="socialrise"] .panel-title{font-weight:700}
+
+/* The divider label rides the gradient too. */
+[data-brand="socialrise"] .divider span{
+  background:var(--rise);
+  border-color:transparent;
+  color:#fff;
+}

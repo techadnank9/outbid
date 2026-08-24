@@ -2,6 +2,7 @@
   "projects": {
     "default": "outbidloll",
     "outbid": "outbidloll",
-    "dethrone": "dethronelol"
+    "dethrone": "dethronelol",
+    "socialrise": "socialriselol"
   }
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-brand="%BRAND_SLUG%">
 <head>
 <!--HEAD-->
 <title>%BRAND%</title>
@@ -21,7 +21,7 @@
     </div>
 
     <h1 class="hero-title">
-      Claim <span class="nowrap">#1 for</span>
+      %HERO_VERB% <span class="nowrap">#1 for</span>
       <span class="bid-control">
         <button class="step" id="stepDown" type="button" aria-label="Decrease bid">−</button>
         <span class="bid-wrap">
@@ -41,7 +41,7 @@
         <span class="field-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.9 2.6 15.1 0 18M12 3c-2.6 2.9-2.6 15.1 0 18"/></svg>
         </span>
-        <input id="urlInput" type="text" placeholder="Your product URL or @handle" aria-label="Your product URL or @handle" />
+        <input id="urlInput" type="text" placeholder="%INPUT_HINT%" aria-label="%INPUT_HINT%" />
       </div>
       <div class="cat-picker" id="catPicker">
         <button type="button" class="cat-picker-btn" id="catPickerBtn"
@@ -51,12 +51,12 @@
         </button>
         <div class="cat-picker-menu" id="catPickerMenu" role="listbox" hidden></div>
       </div>
-      <button class="btn-outbid" id="outbidBtn" type="submit" disabled>Outbid</button>
+      <button class="btn-outbid" id="outbidBtn" type="submit" disabled>%CTA%</button>
     </form>
 
     <div class="preview" id="preview" hidden></div>
 
-    <p class="hero-hint">Already on the list? Enter the same URL or @handle and up your bid.</p>
+    <p class="hero-hint">%REBID_HINT%</p>
     <p class="dev-banner">Dev payments mode — bids confirm without a real charge.</p>
   </section>
 

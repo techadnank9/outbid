@@ -14,6 +14,7 @@
     "build": "node build.js",
     "deploy": "./deploy.sh outbid",
     "deploy:dethrone": "./deploy.sh dethrone",
-    "deploy:all": "./deploy.sh outbid && ./deploy.sh dethrone"
+    "deploy:all": "./deploy.sh outbid && ./deploy.sh dethrone && ./deploy.sh socialrise",
+    "deploy:socialrise": "./deploy.sh socialrise"
   }
 }

@@ -469,7 +469,7 @@ $('claimForm').addEventListener('submit', async (e) => {
   const btn = $('outbidBtn');
   btn.disabled = true;
   btn.classList.add('busy');
-  const label = btn.textContent;
+  const label = btn.textContent;   // brand-specific, set at build time
   btn.textContent = 'Working…';
 
   try {

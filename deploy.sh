@@ -2,7 +2,8 @@
 # Builds and deploys one branded front-end.
 #
 #   ./deploy.sh outbid      -> Outbid   on outbidloll.web.app
-#   ./deploy.sh dethrone    -> Dethrone on dethronelol.web.app
+#   ./deploy.sh dethrone    -> Dethrone   on dethronelol.web.app
+#   ./deploy.sh socialrise  -> SocialRise on socialriselol.web.app
 #
 # Both are the same codebase against the same API; only the name differs.
 set -euo pipefail
@@ -28,14 +29,22 @@ case "$TARGET" in
     DATAFAST_DOMAIN=dethronelol.web.app
     DATAFAST_SHARE_URL="${DETHRONE_DATAFAST_SHARE_URL:-https://datafa.st/share/6a8a021c9847b968c02c20ed}"
     ;;
+  socialrise)
+    BRAND_NAME=SocialRise
+    BRAND_THEME=socialrise
+    PROJECT=socialriselol
+    DATAFAST_WEBSITE_ID="${SOCIALRISE_DATAFAST_WEBSITE_ID:-}"
+    DATAFAST_DOMAIN=socialriselol.web.app
+    DATAFAST_SHARE_URL="${SOCIALRISE_DATAFAST_SHARE_URL:-}"
+    ;;
   *)
-    echo "Unknown target '$TARGET'. Use: outbid | dethrone" >&2
+    echo "Unknown target '$TARGET'. Use: outbid | dethrone | socialrise" >&2
     exit 1
     ;;
 esac
 
 echo "Building $BRAND_NAME -> $PROJECT (API $API_BASE)"
-API_BASE="$API_BASE" BRAND_NAME="$BRAND_NAME" \
+API_BASE="$API_BASE" BRAND_NAME="$BRAND_NAME" BRAND_THEME="${BRAND_THEME:-}" \
 DATAFAST_WEBSITE_ID="$DATAFAST_WEBSITE_ID" \
 DATAFAST_DOMAIN="$DATAFAST_DOMAIN" \
 DATAFAST_SHARE_URL="$DATAFAST_SHARE_URL" \
