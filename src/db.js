@@ -454,9 +454,12 @@ export function attachPaymentDetails(sessionId, d){
 }
 
 /* Full transaction ledger, newest first — for the admin endpoint. */
-export function transactions({ limit = 100, offset = 0, email = null } = {}){
-  const where = email ? `AND b.customer_email = ?` : '';
-  const args = email ? [email, limit, offset] : [limit, offset];
+export function transactions({ limit = 100, offset = 0, email = null, brand = null } = {}){
+  /* The ledger spans every board by default — one place to reconcile
+     against Stripe — but can be narrowed to one. */
+  const where = [email && `AND b.customer_email = ?`, brand && `AND l.brand = ?`]
+    .filter(Boolean).join(' ');
+  const args = [email, brand].filter(v => v !== null).concat([limit, offset]);
   return db.prepare(`
     SELECT
       b.id, b.status, b.provider, b.session_id, b.payment_intent,
@@ -464,7 +467,7 @@ export function transactions({ limit = 100, offset = 0, email = null } = {}){
       b.customer_email, b.customer_name, b.stripe_customer_id,
       b.card_brand, b.card_last4, b.country, b.receipt_url,
       b.created_at, b.paid_at,
-      l.target, l.title
+      l.brand, l.target, l.title
     FROM bids b JOIN listings l ON l.id = b.listing_id
     WHERE 1=1 ${where}
     ORDER BY b.created_at DESC
@@ -472,8 +475,12 @@ export function transactions({ limit = 100, offset = 0, email = null } = {}){
   `).all(...args);
 }
 
-export function transactionCount(){
-  return db.prepare(`SELECT COUNT(*) AS n FROM bids`).get().n;
+export function transactionCount(brand = null){
+  if (!brand) return db.prepare(`SELECT COUNT(*) AS n FROM bids`).get().n;
+  return db.prepare(`
+    SELECT COUNT(*) AS n FROM bids b JOIN listings l ON l.id = b.listing_id
+    WHERE l.brand = ?
+  `).get(brand).n;
 }
 
 export function getBidBySession(sessionId){

@@ -223,14 +223,17 @@ export const routes = {
   /* Transaction ledger. Contains customer emails, so it is never public. */
   'GET /api/admin/transactions': (ctx) => {
     requireAdmin(ctx);
+    const brandFilter = ctx.query.get('brand') || null;
     return {
-      total: store.transactionCount(),
+      total: store.transactionCount(brandFilter),
       items: store.transactions({
         limit: Math.min(500, Number(ctx.query.get('limit')) || 100),
         offset: Math.max(0, Number(ctx.query.get('offset')) || 0),
-        email: ctx.query.get('email') || null
+        email: ctx.query.get('email') || null,
+        brand: brandFilter
       }).map(t => ({
         id: t.id,
+        board: t.brand,
         status: t.status,
         provider: t.provider,
         target: t.target,
