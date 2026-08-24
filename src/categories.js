@@ -167,7 +167,7 @@ function domainMatches(domain, term){
     .some(tok => tok === collapsed || tok === collapsed + 's');
 }
 
-export function classify({ target, kind, title = '', description = '', brand = 'outbid' }){
+export function classify({ target, kind, title = '', description = '', brand = 'outbid', fallback = 'other' }){
   /* On a board of products, an @handle is simply a person and there is no
      more to say. On a creator board every listing is a person, so the
      question is what they make — and the bio is the evidence. */
@@ -201,6 +201,7 @@ export function classify({ target, kind, title = '', description = '', brand = '
     if (score > bestScore){ bestScore = score; best = slug; }
   }
 
-  // One weak single-word hit is not enough to claim a category.
-  return bestScore >= 2 ? best : 'other';
+  // One weak single-word hit is not enough to claim a category; fall back
+  // to whatever this board treats as its home category.
+  return bestScore >= 2 ? best : fallback;
 }

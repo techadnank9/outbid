@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as store from './db.js';
 import { parseTarget, fetchMetadata, InputError } from './metadata.js';
 import { categoriesFor, categoryMapFor, classify } from './categories.js';
-import { minBidCents, maxBidCents } from './brands.js';
+import { minBidCents, maxBidCents, defaultCategory } from './brands.js';
 import { PLATFORMS, PLATFORM_BY_SLUG, platformName } from './platforms.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
@@ -210,7 +210,9 @@ export const routes = {
   })),
 
   'GET /api/stats': (ctx) => {
-    store.touchVisitor(ctx.visitorId, ctx.brand);
+    /* Only clients that presented an identifier are people we have seen
+       before; first contact issues one and waits to be recognised. */
+    if (ctx.visitorReturning) store.touchVisitor(ctx.visitorId, ctx.brand);
     const { total, online } = store.visitorStats(ctx.brand);
     const top = store.topAmount(ctx.brand);
     return {
@@ -349,7 +351,8 @@ export const routes = {
       category: categoryMapFor(ctx.brand).has(ctx.body?.category)
         ? ctx.body.category
         : classify({ target: parsed.target, kind: parsed.kind, brand: ctx.brand,
-                     title: meta.title, description: meta.description })
+                     title: meta.title, description: meta.description,
+                     fallback: defaultCategory(ctx.brand) })
     });
 
     /* Record a zero charge explicitly. Leaving it null would make revenue
@@ -430,7 +433,8 @@ export const routes = {
       // bidder can override it before paying.
       category: classify({
         target: parsed.target, kind: parsed.kind, brand: ctx.brand,
-        title: meta.title, description: meta.description
+        title: meta.title, description: meta.description,
+        fallback: defaultCategory(ctx.brand)
       }),
       alreadyListed: Boolean(current),
       currentPrice: current / 100,
@@ -488,7 +492,8 @@ export const routes = {
         ? ctx.body.category
         : classify({
             target: parsed.target, kind: parsed.kind, brand: ctx.brand,
-            title: meta.title, description: meta.description
+            title: meta.title, description: meta.description,
+            fallback: defaultCategory(ctx.brand)
           })
     });
 

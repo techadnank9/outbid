@@ -303,3 +303,59 @@ describe('the storage key never reaches the page', () => {
     assert.ok(board.items.find(i => i.target === 'example.com'));
   });
 });
+
+describe('each board has a home category', () => {
+  test('an unclassifiable creator lands in AI & Tech, not Everything Else', async () => {
+    const res = await post('/api/preview', { target: '@nondescript', platform: 'x' }, SOCIAL);
+    const body = await res.json();
+    assert.equal(body.category, 'ai-tech');
+  });
+
+  test('the product board still falls back to Everything Else', async () => {
+    const res = await post('/api/preview', { target: 'nondescript-xyz.example' }, OUTBID);
+    assert.equal((await res.json()).category, 'other');
+  });
+
+  test('a clear signal still wins over the fallback', async () => {
+    const res = await post('/api/preview', { target: 'https://instagram.com/nasa' }, SOCIAL);
+    const body = await res.json();
+    assert.notEqual(body.category, 'ai-tech', 'NASA is science, not the fallback');
+  });
+});
+
+describe('visitor counts exclude clients that keep no state', () => {
+  test('anonymous scripted calls do not invent visitors', async () => {
+    const anon = () => fetch(BASE + '/api/stats', { headers: { origin: SOCIAL } })
+      .then(r => r.json());
+
+    const before = (await anon()).visitors;
+    for (let i = 0; i < 5; i++) await anon();
+    const after = (await anon()).visitors;
+
+    assert.equal(after, before,
+      'a crawler that keeps no cookie must not be counted as five people');
+  });
+
+  test('a client that presents an id is counted once', async () => {
+    const id = 'deadbeef-1111-2222-3333-444455556666';
+    const hit = () => fetch(BASE + '/api/stats', {
+      headers: { origin: SOCIAL, 'x-visitor-id': id }
+    }).then(r => r.json());
+
+    const first = (await hit()).visitors;
+    await hit(); await hit();
+    assert.equal((await hit()).visitors, first, 'repeat visits do not stack');
+  });
+
+  test('a browser is counted on the request after it is issued an id', async () => {
+    const res = await fetch(BASE + '/api/stats', { headers: { origin: SOCIAL } });
+    const cookie = res.headers.get('set-cookie');
+    assert.ok(cookie, 'an identifier is issued on first contact');
+
+    const before = (await res.json()).visitors;
+    const withCookie = await (await fetch(BASE + '/api/stats', {
+      headers: { origin: SOCIAL, cookie: cookie.split(';')[0] }
+    })).json();
+    assert.equal(withCookie.visitors, before + 1, 'counted once it comes back');
+  });
+});

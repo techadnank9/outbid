@@ -139,21 +139,25 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
    header, and the cookie is only a same-origin convenience. */
 function visitorFrom(req, res){
   const fromHeader = String(req.headers['x-visitor-id'] || '');
-  if (UUID_RE.test(fromHeader)) return fromHeader.toLowerCase();
+  if (UUID_RE.test(fromHeader)) return { id: fromHeader.toLowerCase(), returning: true };
 
   const cookies = Object.fromEntries(
     (req.headers.cookie || '').split(';')
       .map(c => c.trim().split('='))
       .filter(p => p[0])
   );
-  let id = cookies.vid;
-  if (!id || !UUID_RE.test(id)){
-    id = randomUUID();
-    res.setHeader('set-cookie',
-      `vid=${id}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`
-      + (SECURE_COOKIES ? '; Secure' : ''));
-  }
-  return id;
+  const id = cookies.vid;
+  if (id && UUID_RE.test(id)) return { id, returning: true };
+
+  /* No identifier of any kind. Issue one, but do not count this request:
+     a browser will send it back and be counted then, while crawlers and
+     scripts that keep no state never will. Counting on first sight made
+     every scripted call a new "visitor". */
+  const fresh = randomUUID();
+  res.setHeader('set-cookie',
+    `vid=${fresh}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`
+    + (SECURE_COOKIES ? '; Secure' : ''));
+  return { id: fresh, returning: false };
 }
 
 /* Mirrors build.js so the Node server and the static build produce the
@@ -287,7 +291,8 @@ const server = createServer(async (req, res) => {
         origin: checkoutOrigin(req),
         ip: (TRUST_PROXY && req.headers['x-forwarded-for']?.split(',')[0].trim())
             || req.socket.remoteAddress,
-        visitorId: visitorFrom(req, res),
+        ...(() => { const v = visitorFrom(req, res);
+                    return { visitorId: v.id, visitorReturning: v.returning }; })(),
         brand: brandFor(req),
         authorization: req.headers.authorization || '',
         body: {}

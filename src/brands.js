@@ -2,12 +2,16 @@
    funded products, so the floor differs per leaderboard rather than being
    one global constant. */
 
-const DEFAULTS = { minBidCents: 500, maxBidCents: 100_000_00 };
+const DEFAULTS = { minBidCents: 500, maxBidCents: 100_000_00, defaultCategory: 'other' };
 
 const BRANDS = {
   outbid:     { minBidCents: 500 },
   dethrone:   { minBidCents: 500 },
-  socialrise: { minBidCents: 100 }   // $1 — creators start cheap
+  /* $1 — creators start cheap. Where the classifier cannot tell what
+     someone makes, they land in AI & Tech rather than Everything Else:
+     it is where this board's audience is, and a filled category is more
+     useful to a browser than a bucket labelled "other". */
+  socialrise: { minBidCents: 100, defaultCategory: 'ai-tech' }
 };
 
 /* Env wins, so a floor can be changed without a deploy:
@@ -21,4 +25,5 @@ export function brandConfig(brand){
 }
 
 export function minBidCents(brand){ return brandConfig(brand).minBidCents; }
+export function defaultCategory(brand){ return brandConfig(brand).defaultCategory; }
 export function maxBidCents(brand){ return brandConfig(brand).maxBidCents; }
