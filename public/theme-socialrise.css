@@ -1,81 +1,139 @@
-/* SocialRise — a distinct identity, not a recolour of Outbid.
-   Loaded only when BRAND_THEME=socialrise; the base stylesheet still
-   supplies layout, so this is tokens plus the components that carry the
-   personality. */
+/* SocialRise — its own identity, not a recolour of Outbid.
+   Loaded only when BRAND_THEME=socialrise; the base stylesheet supplies
+   layout, so this is tokens plus the components that carry the character. */
 
 :root[data-brand="socialrise"]{
-  /* Violet-biased neutrals, dark-first: social products are used at night
-     and a warm cream ground would fight the accent. */
-  --background:#0B0B12;
-  --foreground:#F4F4FA;
-  --card:#15151F;
-  --muted:#1C1C28;
-  --muted-foreground:#8E8CA6;
-  --border:#272736;
+  /* Deep ocean ground. The shader lives in the same family, so content
+     sits inside the field rather than on top of it. */
+  --background:#040D14;
+  --foreground:#EAF6FF;
+  --card:#0B1822;
+  --muted:#11212D;
+  --muted-foreground:#7C97A8;
+  --border:#1B2E3B;
 
-  --primary:#8B6BFF;
-  --primary-foreground:#0B0B12;
-  --live:#2BD97C;
+  --primary:#22D3EE;
+  --primary-foreground:#04121A;
+  --live:#3BE8B0;
 
-  /* The rise: violet climbing to pink. Used for rank, the logo and the
-     price — the three things the board is actually about. */
-  --rise:linear-gradient(135deg,#7C5CFF 0%,#B24BFF 45%,#FF4D9D 100%);
+  /* The rise: cyan climbing through blue into lime. It carries the
+     wordmark, the rank and the price — the three things the board is
+     actually about — and nothing else. */
+  --rise:linear-gradient(135deg,#00D5FF 0%,#2E9BF5 45%,#A3E635 100%);
 
   --radius:1.1rem;
   --shadow-sm:0 1px 2px rgba(0,0,0,.5);
-  --shadow-md:0 8px 28px -10px rgba(124,92,255,.35);
-  --shadow-lg:0 24px 60px -24px rgba(124,92,255,.5);
+  --shadow-md:0 8px 28px -10px rgba(0,213,255,.30);
+  --shadow-lg:0 24px 60px -24px rgba(0,213,255,.42);
 
   --font-sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
   --font-display:"Bricolage Grotesque","Plus Jakarta Sans",system-ui,sans-serif;
   --font-mono:"Geist Mono",ui-monospace,SFMono-Regular,monospace;
 }
 
-/* A light mode exists, but the identity lives in the dark one. */
+/* A light mode exists for anyone who insists, but the identity is the
+   dark one — the field has no meaning on white. */
 :root[data-brand="socialrise"][data-theme="light"]{
-  --background:#FBFAFF;
-  --foreground:#15151F;
+  --background:#F4FAFD;
+  --foreground:#04121A;
   --card:#FFFFFF;
-  --muted:#F3F1FB;
-  --muted-foreground:#63607D;
-  --border:#E6E2F5;
-  --primary:#6D46F2;
+  --muted:#E9F2F7;
+  --muted-foreground:#4E6472;
+  --border:#D3E3EC;
+  --primary:#0891B2;
   --primary-foreground:#FFFFFF;
-  --shadow-md:0 8px 28px -10px rgba(109,70,242,.22);
-  --shadow-lg:0 24px 60px -24px rgba(109,70,242,.3);
+  --shadow-md:0 8px 28px -10px rgba(8,145,178,.20);
+  --shadow-lg:0 24px 60px -24px rgba(8,145,178,.28);
 }
 
 [data-brand="socialrise"] body{
   font-family:var(--font-sans);
-  /* Two soft lights behind the page so the dark ground is not flat. */
-  background-image:
-    radial-gradient(900px 500px at 12% -12%, rgba(124,92,255,.16), transparent 60%),
-    radial-gradient(760px 420px at 92% -4%, rgba(255,77,157,.12), transparent 60%);
-  background-attachment:fixed;
+  background:var(--background);
 }
 
-/* ── Wordmark ───────────────────────────────────────── */
+/* ── The field ────────────────────────────────────────────────
+   A live shader as the page's ground, drawn by field.js. */
+[data-brand="socialrise"] #field,
+[data-brand="socialrise"] #field-fallback{
+  position:fixed;inset:0;
+  /* A canvas is a replaced element: inset alone leaves it at its
+     half-resolution buffer size and it covers half the screen. */
+  width:100%;height:100%;
+  z-index:0;display:block;
+}
+[data-brand="socialrise"] #field-fallback{
+  background:
+    radial-gradient(900px 620px at 14% -10%, rgba(0,213,255,.22), transparent 62%),
+    radial-gradient(780px 520px at 88% 2%, rgba(163,230,53,.12), transparent 60%),
+    var(--background);
+}
+/* Settles the lower half so the board stays readable over moving colour. */
+[data-brand="socialrise"] .field-veil{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(120% 78% at 50% 0%, transparent 38%, rgba(4,13,20,.62) 100%),
+    linear-gradient(180deg, transparent 40%, var(--background) 94%);
+}
+/* Grain. Optical texture is what stops a gradient reading as plastic. */
+[data-brand="socialrise"] .field-grain{
+  position:fixed;inset:-50%;z-index:2;pointer-events:none;opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:sr-grain 7s steps(6) infinite;
+}
+@keyframes sr-grain{
+  0%,100%{transform:translate(0,0)} 25%{transform:translate(-3%,2%)}
+  50%{transform:translate(2%,-3%)}  75%{transform:translate(-2%,-1%)}
+}
+[data-brand="socialrise"] .site-header,
+[data-brand="socialrise"] main,
+[data-brand="socialrise"] .site-footer{position:relative;z-index:3}
+
+/* ── Glass ────────────────────────────────────────────────────
+   Surfaces are translucent so the field reads as one continuous
+   ground. Solid panels over a moving shader look pasted on. */
+[data-brand="socialrise"] .panel,
+[data-brand="socialrise"] .row,
+[data-brand="socialrise"] .cat-all,
+[data-brand="socialrise"] .stats-pill,
+[data-brand="socialrise"] .cat-picker-btn,
+[data-brand="socialrise"] .cat-picker-menu,
+[data-brand="socialrise"] .btn-refresh,
+[data-brand="socialrise"] .preview{
+  background:rgba(11,24,34,.62);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+/* `.field` is the form's input wrapper in the base stylesheet — a
+   different thing entirely from the shader field. */
+[data-brand="socialrise"] .claim-form .field{
+  background:rgba(11,24,34,.66);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+[data-brand="socialrise"] .revenue-card{
+  background:linear-gradient(180deg, rgba(0,213,255,.14), transparent), rgba(11,24,34,.7);
+  backdrop-filter:blur(16px);
+}
+
+/* ── Wordmark ─────────────────────────────────────────────── */
 [data-brand="socialrise"] .brand-name{
   font-family:var(--font-display);
-  font-weight:800;
-  letter-spacing:-.04em;
+  font-weight:800;letter-spacing:-.04em;
   background:var(--rise);
-  -webkit-background-clip:text;background-clip:text;
-  color:transparent;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 [data-brand="socialrise"] .brand-dot{display:none}
 [data-brand="socialrise"] .brand-mark{
-  color:#fff;
+  color:#04121A;
   background:var(--rise);
   border-radius:10px;padding:4px;
   width:30px;height:30px;
 }
 
-/* ── Hero ───────────────────────────────────────────── */
+/* ── Hero ─────────────────────────────────────────────────── */
 [data-brand="socialrise"] .hero-title{
   font-family:var(--font-display);
-  font-weight:800;
-  letter-spacing:-.045em;
+  font-weight:800;letter-spacing:-.045em;
 }
 [data-brand="socialrise"] .bid-wrap{
   background:var(--rise);
@@ -83,92 +141,67 @@
 }
 [data-brand="socialrise"] .bid-input,
 [data-brand="socialrise"] .bid-currency{color:transparent}
-[data-brand="socialrise"] .bid-input{caret-color:#B24BFF}
+[data-brand="socialrise"] .bid-input{caret-color:#22D3EE}
 
 [data-brand="socialrise"] .btn-outbid{
   background:var(--rise);
-  color:#fff;
-  font-weight:700;
-  box-shadow:0 8px 24px -10px rgba(178,75,255,.7);
+  color:#04121A;font-weight:700;
+  box-shadow:0 10px 28px -12px rgba(0,213,255,.85);
 }
 [data-brand="socialrise"] .btn-outbid:disabled{box-shadow:none}
 
-/* ── Profiles are people, so avatars are round ──────── */
+/* ── Profiles are people, so avatars are round ────────────── */
 [data-brand="socialrise"] .row-avatar,
 [data-brand="socialrise"] .avatar{border-radius:999px}
 [data-brand="socialrise"] .row-avatar{
   box-shadow:0 0 0 2px var(--card), 0 0 0 3.5px transparent;
 }
 [data-brand="socialrise"] .row.top .row-avatar{
-  box-shadow:0 0 0 2px var(--card), 0 0 0 4px #B24BFF;
+  box-shadow:0 0 0 2px var(--card), 0 0 0 4px #22D3EE;
 }
 
-/* ── Rank ───────────────────────────────────────────── */
+/* ── Rank and price ───────────────────────────────────────── */
 [data-brand="socialrise"] .rank{
-  font-family:var(--font-mono);
-  font-weight:700;
+  font-family:var(--font-mono);font-weight:700;
 }
 [data-brand="socialrise"] .row.top .rank{
   background:var(--rise);
-  color:#fff;
-  box-shadow:0 6px 18px -8px rgba(178,75,255,.9);
+  color:#04121A;
+  box-shadow:0 6px 18px -8px rgba(0,213,255,.9);
 }
-
 [data-brand="socialrise"] .row.top{
   background:
-    linear-gradient(180deg, rgba(124,92,255,.14), rgba(255,77,157,.06)),
-    var(--card);
-  border-color:rgba(139,107,255,.45);
+    linear-gradient(180deg, rgba(0,213,255,.13), rgba(163,230,53,.05)),
+    rgba(11,24,34,.72);
+  border-color:rgba(34,211,238,.42);
 }
-[data-brand="socialrise"] .row.top:hover{
-  border-color:rgba(178,75,255,.75);
-}
+[data-brand="socialrise"] .row.top:hover{border-color:rgba(34,211,238,.72)}
 
 [data-brand="socialrise"] .row-price{
-  font-family:var(--font-mono);
-  font-weight:700;
-  letter-spacing:-.02em;
+  font-family:var(--font-mono);font-weight:700;letter-spacing:-.02em;
 }
 [data-brand="socialrise"] .row.top .row-price{
   background:var(--rise);
-  -webkit-background-clip:text;background-clip:text;
-  color:transparent;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
-/* ── Panels, tabs, cards ────────────────────────────── */
-[data-brand="socialrise"] .panel,
-[data-brand="socialrise"] .cat-card,
-[data-brand="socialrise"] .stat{
-  background:linear-gradient(180deg, rgba(255,255,255,.035), transparent), var(--card);
-}
+/* ── Tabs, dividers, docs ─────────────────────────────────── */
 [data-brand="socialrise"] .cat-tab.active{
-  background:var(--rise);
-  border-color:transparent;
-  color:#fff;
+  background:var(--rise);border-color:transparent;color:#04121A;
 }
-[data-brand="socialrise"] .stats-pill{
-  background:linear-gradient(180deg, rgba(255,255,255,.05), transparent), var(--card);
-}
-
-[data-brand="socialrise"] .revenue-card{
-  background:linear-gradient(180deg, rgba(124,92,255,.16), transparent), var(--card);
-  border:1px solid var(--border);
+[data-brand="socialrise"] .cat-tab.active .cat-icon{color:#04121A}
+[data-brand="socialrise"] .divider span{
+  background:var(--rise);border-color:transparent;color:#04121A;
 }
 [data-brand="socialrise"] .revenue-currency{
   background:var(--rise);
-  -webkit-background-clip:text;background-clip:text;
-  color:transparent;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-
 [data-brand="socialrise"] .doc-title{
-  font-family:var(--font-display);
-  font-weight:800;letter-spacing:-.04em;
+  font-family:var(--font-display);font-weight:800;letter-spacing:-.04em;
 }
 [data-brand="socialrise"] .panel-title{font-weight:700}
 
-/* The divider label rides the gradient too. */
-[data-brand="socialrise"] .divider span{
-  background:var(--rise);
-  border-color:transparent;
-  color:#fff;
+@media (prefers-reduced-motion:reduce){
+  [data-brand="socialrise"] .field-grain{animation:none}
 }

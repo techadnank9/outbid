@@ -43,7 +43,7 @@ const FOOTER = partial('_footer.html');
    file's contents: unchanged files keep their URL and stay cached, changed
    ones get a new URL and are fetched immediately. */
 const THEME = process.env.BRAND_THEME || '';
-const ASSETS = ['styles.css', 'app.js', 'theme.js', 'icons.js']
+const ASSETS = ['styles.css', 'app.js', 'theme.js', 'icons.js', 'field.js']
   .concat(THEME ? [`theme-${THEME}.css`] : []);
 const stamp = Object.fromEntries(ASSETS.map(f => [
   f,
