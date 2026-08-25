@@ -265,15 +265,32 @@ async function loadCategories(){
 /* ── Platform picker ─────────────────────────────────────────────
    Only shown where it means something: a creator board needs to know
    whether @sam is TikTok or X, since the handle alone does not say. */
-let platforms = [];
+/* Shipped with the page so the control works before — and regardless of —
+   any request. A failed lookup used to hide the picker permanently. */
+let platforms = [
+  { slug: 'x', name: 'X' }, { slug: 'instagram', name: 'Instagram' },
+  { slug: 'tiktok', name: 'TikTok' }, { slug: 'youtube', name: 'YouTube' },
+  { slug: 'twitch', name: 'Twitch' }, { slug: 'linkedin', name: 'LinkedIn' },
+  { slug: 'reddit', name: 'Reddit' }, { slug: 'threads', name: 'Threads' },
+  { slug: 'facebook', name: 'Facebook' }, { slug: 'substack', name: 'Substack' },
+  { slug: 'web', name: 'Website' }
+];
 let chosenPlatform = '';
 
 async function loadPlatforms(){
   if (!$('platformPicker')) return;
-  try { platforms = (await api('/api/platforms')).items; } catch { return; }
+  try {
+    const fresh = (await api('/api/platforms')).items;
+    if (fresh?.length) platforms = fresh;
+  } catch { /* keep the built-in list */ }
 
-  $('platformPicker').hidden = false;
-  $('platformPickerMenu').innerHTML = platforms.map(p => `
+  renderPlatformMenu();
+}
+
+function renderPlatformMenu(){
+  const menu = $('platformPickerMenu');
+  if (!menu) return;
+  menu.innerHTML = platforms.map(p => `
     <button type="button" role="option" class="cat-option${chosenPlatform === p.slug ? ' selected' : ''}"
             data-slug="${p.slug}" aria-selected="${chosenPlatform === p.slug}">
       <span>${escapeHtml(p.name)}</span>
@@ -289,7 +306,7 @@ function setChosenPlatform(slug, byUser){
     label.classList.toggle('placeholder', !found);
   }
   if (byUser) $('platformPicker')?.setAttribute('data-touched', '1');
-  loadPlatforms();
+  renderPlatformMenu();
 }
 
 $('platformPickerBtn')?.addEventListener('click', (e) => {

@@ -4,6 +4,7 @@ import { parseTarget, fetchMetadata, InputError } from './metadata.js';
 import { categoriesFor, categoryMapFor, classify } from './categories.js';
 import { minBidCents, maxBidCents, defaultCategory } from './brands.js';
 import { PLATFORMS, PLATFORM_BY_SLUG, platformName } from './platforms.js';
+import * as datafast from './datafast.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
   stripeEnabled, createCheckoutSession, retrieveSession, verifyWebhook,
@@ -209,17 +210,27 @@ export const routes = {
     }))
   })),
 
-  'GET /api/stats': (ctx) => {
+  'GET /api/stats': async (ctx) => {
     /* Only clients that presented an identifier are people we have seen
        before; first contact issues one and waits to be recognised. */
     if (ctx.visitorReturning) store.touchVisitor(ctx.visitorId, ctx.brand);
-    const { total, online } = store.visitorStats(ctx.brand);
+    const local = store.visitorStats(ctx.brand);
     const top = store.topAmount(ctx.brand);
+    const launched = store.launchedAtFor(ctx.brand);
+
+    /* DataFast already separates people from crawlers, so its numbers are
+       preferred where a token is configured. Ours remain the fallback for
+       when the API is slow or down — a stat panel should never be the
+       reason the page fails. */
+    const remote = await datafast.visitorStats(ctx.brand, launched);
+    const online = remote?.online ?? local.online;
+    const total = remote?.visitors ?? local.total;
     return {
       online,
       visitors: total,
       revenue: store.revenueCents(ctx.brand) / 100,
-      launchedAt: store.launchedAtFor(ctx.brand),
+      launchedAt: launched,
+      countedBy: remote ? 'datafast' : 'local',
       topBid: top / 100,
       // The rules say a rank costs $1 more than the listing holding it, so
       // the headline price must agree rather than quoting a $5 step.

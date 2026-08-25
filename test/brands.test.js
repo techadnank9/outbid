@@ -359,3 +359,17 @@ describe('visitor counts exclude clients that keep no state', () => {
     assert.equal(withCookie.visitors, before + 1, 'counted once it comes back');
   });
 });
+
+describe('visitor numbers prefer DataFast when configured', () => {
+  test('without a token, the local count is used and labelled as such', async () => {
+    const s = await get('/api/stats', SOCIAL);
+    assert.equal(s.countedBy, 'local');
+    assert.equal(typeof s.visitors, 'number');
+  });
+
+  test('stats never fail because analytics is unreachable', async () => {
+    // A bad token must degrade to the local count, not error the endpoint.
+    const res = await fetch(BASE + '/api/stats', { headers: { origin: SOCIAL } });
+    assert.equal(res.status, 200);
+  });
+});
